@@ -1,0 +1,9 @@
+#!/bin/sh
+# Block commits that contain secrets. Enabled with: git config core.hooksPath .githooks
+# winget installs gitleaks here on Windows; shells opened before the install miss it on PATH.
+PATH="$PATH:$HOME/AppData/Local/Microsoft/WinGet/Links"
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks not found on PATH; refusing to commit without a secret scan." >&2
+  exit 1
+fi
+exec gitleaks git --pre-commit --staged --redact --verbose
