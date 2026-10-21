@@ -136,7 +136,7 @@ The Definition of Done is the grading rubric. Every line must be demonstrable li
 - Everything in-cluster: WordPress, MariaDB, woo-mcp, gateway, dashboard, the gateway DB, and any upstreams you host.
 - PVCs for MariaDB and WordPress content.
 - Ingress with stable URLs for the storefront and dashboard. The local domain approach is documented.
-- Readiness and liveness probes, plus requests and limits, on **every** workload. Jobs get limits too.
+- Readiness and liveness probes, plus requests and limits, on **every** long-running workload. Run-to-completion Jobs get requests/limits plus `activeDeadlineSeconds` and `backoffLimit` instead of probes (probes are meaningless on a Job); DESIGN.md says so explicitly.
 - No secrets in source. Everything goes in Kubernetes Secrets, including the LLM key.
 - woo-mcp is written by us and speaks Streamable HTTP. Its tools: list products, create product, list orders, get order, update order status.
 - woo-mcp is **not reachable from outside the cluster**: ClusterIP plus a NetworkPolicy, shown both ways.
@@ -502,7 +502,7 @@ These are the *expected* commits per phase. Claude Code may add more (fixes, tes
 25. `chore(helm): add values-local.yaml`
 26. `chore(helm): add values-prod.yaml stub`
 27. `fix(...)` commits for anything found during `make up` verification, one each
-28. `test(store): verify setup job idempotency across two helm upgrades` (a script or documented check)
+28. `test(store): verify setup job idempotency across two helm upgrades` (a script or documented check). Also verify the Helm 4 behaviour the design relies on: `lookup` keeps generated secrets stable, the hook delete policy, `helm history` and `helm rollback`.
 29. `docs(notes): explain every k8s object in phase 1`
 30. `docs(progress): mark phase 1 complete`
 31. Then tag `phase-1-store` and push.
