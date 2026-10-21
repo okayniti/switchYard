@@ -165,7 +165,9 @@ The Definition of Done is the grading rubric. Every line must be demonstrable li
 
 **Language: TypeScript everywhere**, in a pnpm workspace monorepo.
 
-- The official `@modelcontextprotocol/sdk` is the reference implementation for both the Streamable HTTP server and client transports.
+- The official MCP TypeScript SDK is the reference implementation for both the Streamable HTTP server and client transports. **Use SDK v2** (`@modelcontextprotocol/server` + `@modelcontextprotocol/client` 2.3.1, with `@modelcontextprotocol/node` for `NodeStreamableHTTPServerTransport`). It implements spec 2026-07-28 (session-less) and still serves 2025-11-25 clients with `initialize` and sessions.
+  - **Phase 2 validation gates:** (a) a low-level `Server` serves `tools/list` and `tools/call` dynamically; (b) `Client` connects to a Streamable HTTP upstream with a static auth header; (c) a tools `list_changed` notification reaches MCP Inspector and Claude Code, or those clients re-list tools in a way that satisfies DoD #9.
+  - **Fallback:** if any gate fails or takes more than ~45 min, switch to `@modelcontextprotocol/sdk@1.32.1` and record why in PROGRESS.md.
 - One language means one toolchain and shared types.
 
 **Gateway:** Node 24 LTS (every image, `engines` and `.nvmrc`; the official everything server requires ≥ 24) + Express (the most MCP SDK examples use it) + Postgres via `pg`, with plain SQL migrations run at startup. Zod for validation.
@@ -196,7 +198,7 @@ k3d is created with `-p "80:80@loadbalancer" -p "443:443@loadbalancer"`.
 
 **Verify before coding, then pin all versions:**
 
-- the latest stable `@modelcontextprotocol/sdk` and its current Streamable HTTP class names and options
+- the latest stable MCP TypeScript SDK (v2 split packages, or `@modelcontextprotocol/sdk` v1) and its current Streamable HTTP class names and options
 - the current MCP spec revision
 - WordPress and WooCommerce versions
 - the MCP "everything" reference server package and how to start it in Streamable HTTP mode
@@ -340,7 +342,7 @@ switchYard/
 - Credentials are decrypted in memory from AES-256-GCM. The master key `GATEWAY_ENC_KEY` comes from a Secret.
 - **Health loop** every 10–15 s per server: `ping`/`listTools` with a 3 s timeout. The outcome is `Connected`, `Unreachable` (with a reason: DNS / refused / timeout / 401 / protocol), or `Disabled`.
 - **Upstream session loss** (the pod restarted, and its session now returns 404/400): drop the client and re-initialize transparently. Test this explicitly.
-- **Tool cache** is the union of snapshots from Connected and enabled servers. When it changes, send `notifications/tools/list_changed` to every open downstream session. This is what makes DoD #9 live in Claude Code.
+- **Tool cache** is the union of snapshots from Connected and enabled servers. When it changes, send `notifications/tools/list_changed` to every open 2025-era downstream session, and to every 2026-era client listening through `subscriptions/listen`. This is what makes DoD #9 live in Claude Code (gate (c)).
 
 #### Aggregation and routing (server side)
 
@@ -360,7 +362,7 @@ switchYard/
 
   Failures become `isError: true` with clear text, for example: `"Server 'shipping' is unreachable (connection refused at 14:02:11). Other servers are unaffected."` An unknown tool returns a JSON-RPC error.
 - **One function, `executeToolCall(ctx, name, args)`, writes the audit row for every outcome.** Both `/mcp` and chat use it. Args previews are truncated to about 500 characters.
-- **Downstream sessions:** stateful Streamable HTTP with `Mcp-Session-Id`. Each session is bound to its API key, and `Authorization: Bearer` is re-validated on every request. Validate the `Origin` header (spec guidance on DNS rebinding).
+- **Downstream connections:** serve both protocol eras from one `/mcp`. 2025-era clients get stateful sessions (`Mcp-Session-Id`), each bound to the API key that opened it, and a request whose key doesn't match the session's key is rejected. 2026-era clients are session-less. `Authorization: Bearer` is re-validated on **every** request in both cases. Validate `Host` against an allowlist from Helm values (SDK v2 `hostHeaderValidation`), and `Origin` when it's present (spec guidance on DNS rebinding).
 - **Never pass the client's token upstream.** The MCP spec forbids token passthrough.
 
 #### SSRF guard on Add Server
