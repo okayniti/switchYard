@@ -23,11 +23,11 @@ Checked on 22 Oct 2026 against npm, Docker Hub, wordpress.org and GitHub release
 | Component | Version | Notes |
 |-----------|---------|-------|
 | MCP spec | **2026-07-28** (latest); 2025-11-25 still supported | 2026-07-28 is session-less: `server/discover`, per-request version, `subscriptions/listen` |
-| MCP TS SDK v2 (recommended) | `@modelcontextprotocol/server@2.3.1`, `@modelcontextprotocol/client@2.3.1`, `@modelcontextprotocol/node@2.1.1`, `@modelcontextprotocol/express@2.0.2` | Classes: low-level `Server`, `McpServer`, `NodeStreamableHTTPServerTransport`, `Client`, `StreamableHTTPClientTransport`; `sendToolListChanged()` exists |
+| MCP TS SDK v2 (chosen, gated in Phase 2) | `@modelcontextprotocol/server@2.3.1`, `@modelcontextprotocol/client@2.3.1`, `@modelcontextprotocol/node@2.1.1`, `@modelcontextprotocol/express@2.0.2` | Classes: low-level `Server`, `McpServer`, `NodeStreamableHTTPServerTransport`, `Client`, `StreamableHTTPClientTransport`; `sendToolListChanged()` exists |
 | MCP TS SDK v1 (fallback) | `@modelcontextprotocol/sdk@1.32.1` | `LATEST_PROTOCOL_VERSION = 2025-11-25`; `StreamableHTTPServerTransport`, `StreamableHTTPClientTransport`, `Server` |
 | everything server | `@modelcontextprotocol/server-everything@2.0.0` | Start: `npx @modelcontextprotocol/server-everything streamableHttp`; endpoint `:3001/mcp` (`PORT` overrides); **Node ≥ 24**; serves both protocol eras |
 | MCP Inspector | `@modelcontextprotocol/inspector@2.12.0` | for manual verification |
-| Node.js | **24.22.1** (Active LTS "Krypton") for images; local dev 22.19.0 OK | everything-mcp needs ≥ 24 |
+| Node.js | **24.22.1** (Active LTS "Krypton"): images, `engines`, `.nvmrc` | everything-mcp needs ≥ 24; local machine still has 22.19.0 |
 | pnpm | 10.34.7 | |
 | Express | 5.3.0 | |
 | Zod | 4.6.7 | SDK v2 depends on zod ^4.2 |
@@ -44,11 +44,27 @@ Checked on 22 Oct 2026 against npm, Docker Hub, wordpress.org and GitHub release
 | gitleaks | 8.30.1 | hook uses `gitleaks git --pre-commit --staged` (`protect` is deprecated) |
 | Docker | 29.6.1 | |
 
-## Open decisions (need approval)
+## Decisions (approved 22 Oct)
 
-1. **MCP SDK v2 vs v1** (matrix C-3). Recommend v2: it's the stable line, the everything server is built on it, and it serves both protocol eras.
-2. **Node 24 in all images** (matrix C-2). Recommend yes.
-3. **Admin can issue keys for members** (matrix C-1). The assignment requires it, so it's not optional.
+1. **Push:** the repo goes private before the first push; push `main` at the end of every session after that. PLAYBOOK.md and CLAUDE.md stay in the repo. No history rewrites.
+2. **Node 24 LTS** in every image, in `engines`, and in `.nvmrc`.
+3. **MCP SDK v2** (`@modelcontextprotocol/server` + `/client` 2.3.1), validated in Phase 2 against these gates:
+   - (a) a low-level `Server` serves `tools/list` and `tools/call` dynamically;
+   - (b) `Client` connects to a Streamable HTTP upstream with a static auth header;
+   - (c) a tools `list_changed` notification reaches MCP Inspector and Claude Code, or those clients re-list tools in a way that satisfies DoD #9.
+
+   **Fallback:** if any gate fails or takes more than ~45 min, switch to `@modelcontextprotocol/sdk@1.32.1` and record why here.
+   - Gate (a): ⬜
+   - Gate (b): ⬜
+   - Gate (c): ⬜
+4. **Revocation doesn't depend on sessions.** Every MCP request re-validates the bearer key against the DB, so a revoked key fails on its next request, whether or not a session exists. Closing sessions bound to that key is cleanup on top of that, not the enforcement.
+5. **Admins can issue keys for members** (matrix C-1). Accepted.
+6. **Jobs** get requests/limits plus `activeDeadlineSeconds`/`backoffLimit` instead of probes. Accepted.
+7. **Helm 4:** verify `lookup`, hooks, `history` and `rollback` in Phase 1.
+
+## TODO
+
+- [ ] Phase 8: add a "How I used AI" section to README.md (Claude Code as pair programmer, PLAYBOOK/CLAUDE.md as the plan, what I verified myself).
 
 ## Repo setup notes
 
