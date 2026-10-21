@@ -376,7 +376,8 @@ switchYard/
 | Route | Who | Notes |
 |-------|-----|-------|
 | `/api/auth/*`, `/api/me` | everyone | |
-| `/api/keys` | own keys only | |
+| `/api/keys` | own keys only | members and admins create, list and revoke their own keys |
+| `/api/users/:id/keys` | admin | admin issues (shown once to the admin), lists and revokes a member's keys: brief user story admin #4 |
 | `/api/users`, `/api/invites` | admin | |
 | `/api/servers` CRUD + `/test` | admin | credential is **write-only**; responses only show `hasCredential: true` |
 | `/api/audit` | admin: all; member: own | |
@@ -407,7 +408,7 @@ Authorization is enforced server-side, not just hidden in the UI.
 |------|----------|
 | Login, Accept invite | |
 | **Servers** | name, URL, status badge + reason + last checked, tool count; expandable tool list with descriptions; add / edit / disable / remove / test |
-| **Members** | invite, roles, revoke keys |
+| **Members** | invite, roles, issue and revoke keys per member |
 | **My API keys** | generate → shown once, with a copy button and a ready `claude mcp add` command |
 | **Audit log** | filters by user / server / outcome; auto-refresh |
 | **Chat** | |
@@ -614,6 +615,7 @@ Commit after each item:
 - edit/disable/remove
 - test-connection button
 - members page
+- admin issue-key-for-member action
 - invite flow UI
 - my keys page with show-once modal
 - `claude mcp add` snippet
