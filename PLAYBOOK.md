@@ -334,7 +334,7 @@ switchYard/
   - Comparisons are constant-time.
 - **Dashboard login** is email + password (argon2id or bcrypt) with an httpOnly, SameSite=Lax session cookie. The admin is seeded from a Secret on first boot.
 - **Invites:** admin creates an invite, the invitee gets a token link, sets a password, and becomes a member.
-- **Revocation is immediate.** The key is looked up on **every** MCP request. On revoke, the gateway closes MCP sessions bound to that key.
+- **Revocation is immediate and does not depend on sessions.** Every MCP request, whether session-based (2025-era) or session-less (2026-07-28), re-validates the bearer key against the DB: `revoked_at IS NULL`, and the owning user isn't disabled. The first request after a revoke gets 401. Closing any sessions bound to that key is cleanup on top of that, so open SSE streams also end; it isn't the enforcement mechanism.
 
 #### Upstream manager (client side)
 
