@@ -15,10 +15,13 @@ fi
 
 # Host ports 80/443 -> the k3d load balancer -> Traefik, so *.localtest.me
 # (public DNS for 127.0.0.1) reaches the Ingress without any port numbers.
+# --api-port pins the API to 127.0.0.1: on Docker Desktop for Windows the default
+# kubeconfig server (host.docker.internal) can resolve to an unreachable address.
 k3d cluster create "$CLUSTER" \
   --image "$K3S_IMAGE" \
   --servers 1 \
   --agents 0 \
+  --api-port 127.0.0.1:6550 \
   -p "80:80@loadbalancer" \
   -p "443:443@loadbalancer" \
   --wait
