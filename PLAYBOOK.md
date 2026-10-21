@@ -168,7 +168,7 @@ The Definition of Done is the grading rubric. Every line must be demonstrable li
 - The official `@modelcontextprotocol/sdk` is the reference implementation for both the Streamable HTTP server and client transports.
 - One language means one toolchain and shared types.
 
-**Gateway:** Node 22 + Express (the most MCP SDK examples use it) + Postgres via `pg`, with plain SQL migrations run at startup. Zod for validation.
+**Gateway:** Node 24 LTS (every image, `engines` and `.nvmrc`; the official everything server requires ≥ 24) + Express (the most MCP SDK examples use it) + Postgres via `pg`, with plain SQL migrations run at startup. Zod for validation.
 
 **Dashboard:** React + Vite + TypeScript, served by an `nginx-unprivileged` container. It calls only the gateway's `/api/*`.
 
@@ -755,7 +755,7 @@ keep and build on them).
    PLAYBOOK.md and ASSIGNMENT.md (the assignment wins).
 2. Check and record current versions: @modelcontextprotocol/sdk (and its current Streamable
    HTTP server/client class names), the MCP "everything" reference server package and its
-   streamable HTTP start command, WordPress image tags, WooCommerce, k3d, Helm, Node 22.
+   streamable HTTP start command, WordPress image tags, WooCommerce, k3d, Helm, Node 24.
 3. Create PROGRESS.md with phases 1–9 as checkboxes and a "Pinned versions" section.
 Commit each file separately (Part 0), push, then stop and show me the matrix and conflicts.
 ```
@@ -990,7 +990,7 @@ If PLAYBOOK.md conflicts with ASSIGNMENT.md, ASSIGNMENT.md wins — tell me abou
 ## APPENDIX B — Things only you can do
 
 - [ ] Paste the brief into `docs/ASSIGNMENT.md`.
-- [ ] Install Docker Desktop, k3d, kubectl, Helm, Node 22, pnpm, gitleaks and the GitHub CLI (`gh auth login`).
+- [ ] Install Docker Desktop, k3d, kubectl, Helm, Node 24, pnpm, gitleaks and the GitHub CLI (`gh auth login`).
 - [ ] Get a free LLM API key (Groq / Gemini / OpenRouter). It goes into a Secret only.
 - [ ] Do the manual COD checkout yourself in Phase 1 and in the video.
 - [ ] Create the VPS and DNS, and run the server-side commands yourself.
