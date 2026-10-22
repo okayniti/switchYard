@@ -20,6 +20,8 @@ ADD --checksum=sha256:5317434cb381b5fdc7c1dd6ee258324f08c390976aaf8d1199f2a0e9a3
     https://downloads.wordpress.org/plugin/woocommerce.${WOOCOMMERCE_VERSION}.zip \
     /usr/src/woocommerce.zip
 RUN chmod 0644 /usr/src/woocommerce.zip
+# Lets the setup Job skip the reinstall when the volume already has this version.
+ENV WOOCOMMERCE_VERSION=${WOOCOMMERCE_VERSION}
 
 # Run as www-data (uid 33), not root. Unprivileged users can't bind port 80,
 # so Apache listens on 8080; the Service maps 80 -> 8080.
