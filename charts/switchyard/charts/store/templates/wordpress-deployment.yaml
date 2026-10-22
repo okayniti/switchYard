@@ -28,6 +28,25 @@ spec:
         fsGroup: 33
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+        # local-path volumes are hostPath dirs owned by root (0777) and ignore fsGroup, so
+        # www-data can write into the root but not chmod it — which the entrypoint's tar
+        # copy needs. Creating html/ as www-data gives a directory it owns.
+        - name: prepare-content
+          image: "{{ .Values.wordpress.image.repository }}:{{ .Values.wordpress.image.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: ["sh", "-c", "mkdir -p /pvc/html"]
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { cpu: 100m, memory: 64Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: content
+              mountPath: /pvc
       containers:
         - name: wordpress
           image: "{{ .Values.wordpress.image.repository }}:{{ .Values.wordpress.image.tag }}"
@@ -63,6 +82,7 @@ spec:
           volumeMounts:
             - name: content
               mountPath: /var/www/html
+              subPath: html
             - name: apache-run
               mountPath: /var/run/apache2
             - name: apache-lock
