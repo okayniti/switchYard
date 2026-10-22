@@ -1,5 +1,4 @@
 {{- $c := dict "root" . "component" "wordpress" }}
-{{- $scheme := ternary "https" "http" .Values.global.tls.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -55,24 +54,7 @@ spec:
             - name: http
               containerPort: 8080
           env:
-            - name: WORDPRESS_DB_HOST
-              value: "mariadb.{{ include "store.namespace" . }}.svc.cluster.local:3306"
-            - name: WORDPRESS_DB_NAME
-              value: {{ .Values.mariadb.database | quote }}
-            - name: WORDPRESS_DB_USER
-              value: {{ .Values.mariadb.username | quote }}
-            - name: WORDPRESS_DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "store.mariadbSecretName" . }}
-                  key: mariadb-password
-            # Pin the public URL so WordPress never redirects to an internal hostname.
-            - name: WORDPRESS_CONFIG_EXTRA
-              value: |
-                define('WP_HOME', '{{ $scheme }}://{{ .Values.global.hosts.shop }}');
-                define('WP_SITEURL', '{{ $scheme }}://{{ .Values.global.hosts.shop }}');
-                define('FS_METHOD', 'direct');
-                define('DISABLE_WP_CRON', false);
+            {{- include "store.wordpressEnv" . | nindent 12 }}
           resources:
             {{- toYaml .Values.wordpress.resources | nindent 12 }}
           # Readiness hits PHP + DB: an unhealthy store leaves the Service, so the Ingress
