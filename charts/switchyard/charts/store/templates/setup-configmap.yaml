@@ -78,4 +78,21 @@ data:
     wp wc payment_gateway update cod --enabled=true --user="$ADMIN_USER" --porcelain
     wp wc payment_gateway get cod --field=enabled --user="$ADMIN_USER"
 
+    log "seed sample products (keyed by SKU, so re-runs never duplicate)"
+    seed() { # sku, name, price (string, as the WC API expects), stock
+      if [ -n "$(wp wc product list --sku="$1" --field=id --user="$ADMIN_USER")" ]; then
+        log "  $1 exists"
+      else
+        wp wc product create --user="$ADMIN_USER" --porcelain \
+          --sku="$1" --name="$2" --regular_price="$3" \
+          --manage_stock=true --stock_quantity="$4" --status=publish >/dev/null
+        log "  $1 created"
+      fi
+    }
+    seed SY-TEA-250     "Darjeeling First Flush Tea 250g"   "450" 50
+    seed SY-COFFEE-500  "South Indian Filter Coffee 500g"   "320" 50
+    seed SY-TOWEL-01    "Handloom Cotton Towel"             "299" 40
+    seed SY-DIYA-01     "Brass Diya"                        "549" 25
+    seed SY-CUSHION-01  "Jaipur Block Print Cushion Cover"  "699" 30
+
     log "done"
