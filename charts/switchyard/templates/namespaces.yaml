@@ -1,0 +1,10 @@
+{{- range $zone, $ns := .Values.global.namespaces }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $ns }}
+  labels:
+    app.kubernetes.io/part-of: switchyard
+    switchyard.io/zone: {{ $zone }}
+{{- end }}

@@ -1,0 +1,20 @@
+# Defaults shared by every environment. values-local.yaml / values-prod.yaml override these.
+# Nothing secret belongs in this file.
+
+global:
+  # Workloads are split by trust zone; see PLAYBOOK §2.3.
+  namespaces:
+    store: store        # WordPress, MariaDB, setup Job (storefront is public)
+    mcp: mcp            # upstream MCP servers (internal only)
+    platform: platform  # gateway, dashboard, Postgres
+  # Public hostnames, set per environment.
+  hosts:
+    shop: shop.localtest.me
+    dashboard: yard.localtest.me
+    mcp: mcp.localtest.me
+  ingressClassName: traefik
+  tls:
+    enabled: false
+    clusterIssuer: ""
+  storageClassName: local-path
+  imagePullPolicy: IfNotPresent
