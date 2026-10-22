@@ -1,0 +1,81 @@
+{{- $c := dict "root" . "component" "wordpress" }}
+{{- $scheme := ternary "https" "http" .Values.global.tls.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wordpress
+  namespace: {{ include "store.namespace" . }}
+  labels:
+    {{- include "store.labels" $c | nindent 4 }}
+spec:
+  replicas: 1
+  # The content volume is ReadWriteOnce: stop the old pod before starting the new one.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "store.selectorLabels" $c | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "store.labels" $c | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 33     # www-data, baked into the image
+        runAsGroup: 33
+        fsGroup: 33
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: wordpress
+          image: "{{ .Values.wordpress.image.repository }}:{{ .Values.wordpress.image.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: WORDPRESS_DB_HOST
+              value: "mariadb.{{ include "store.namespace" . }}.svc.cluster.local:3306"
+            - name: WORDPRESS_DB_NAME
+              value: {{ .Values.mariadb.database | quote }}
+            - name: WORDPRESS_DB_USER
+              value: {{ .Values.mariadb.username | quote }}
+            - name: WORDPRESS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "store.mariadbSecretName" . }}
+                  key: mariadb-password
+            # Pin the public URL so WordPress never redirects to an internal hostname.
+            - name: WORDPRESS_CONFIG_EXTRA
+              value: |
+                define('WP_HOME', '{{ $scheme }}://{{ .Values.global.hosts.shop }}');
+                define('WP_SITEURL', '{{ $scheme }}://{{ .Values.global.hosts.shop }}');
+                define('FS_METHOD', 'direct');
+                define('DISABLE_WP_CRON', false);
+          securityContext:
+            allowPrivilegeEscalation: false
+            # Apache/PHP write only to the volumes below; the rest of the image is immutable.
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: content
+              mountPath: /var/www/html
+            - name: apache-run
+              mountPath: /var/run/apache2
+            - name: apache-lock
+              mountPath: /var/lock/apache2
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: content
+          persistentVolumeClaim:
+            claimName: wordpress-content
+        - name: apache-run
+          emptyDir: {}
+        - name: apache-lock
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}

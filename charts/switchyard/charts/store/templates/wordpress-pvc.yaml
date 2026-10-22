@@ -1,0 +1,17 @@
+{{- $c := dict "root" . "component" "wordpress" }}
+# WordPress core + wp-content (uploads, plugins). Shared with the setup Job (same node, RWO).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wordpress-content
+  namespace: {{ include "store.namespace" . }}
+  labels:
+    {{- include "store.labels" $c | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: {{ .Values.global.storageClassName }}
+  resources:
+    requests:
+      storage: {{ .Values.wordpress.storage }}
