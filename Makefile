@@ -10,7 +10,7 @@ TAG       ?= dev
 # Images built locally and imported into k3d (values-local.yaml uses these tags).
 IMAGES := switchyard-wordpress:$(TAG)
 
-.PHONY: help up down cluster images import install status
+.PHONY: help up down cluster images import install status admin-password
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  %-16s %s\n", $$1, $$2}'
@@ -28,6 +28,9 @@ import: ## Import local images into k3d
 
 install: ## helm upgrade --install with local values
 	helm upgrade --install $(RELEASE) $(CHART) -f $(VALUES) --wait --timeout 15m
+
+admin-password: ## Print the WordPress admin login (user: admin)
+	@kubectl get secret wordpress-admin -n store -o jsonpath='{.data.admin-password}' | base64 -d; echo
 
 status: ## Show what is running
 	kubectl get ns,pods,pvc,svc,ingress,networkpolicy -A -l app.kubernetes.io/part-of=switchyard
