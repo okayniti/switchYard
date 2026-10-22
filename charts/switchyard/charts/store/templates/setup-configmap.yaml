@@ -1,0 +1,48 @@
+{{- $c := dict "root" . "component" "store-setup" }}
+# The setup Job's script. A normal (non-hook) resource, so it exists before the hook Job runs.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: store-setup
+  namespace: {{ include "store.namespace" . }}
+  labels:
+    {{- include "store.labels" $c | nindent 4 }}
+data:
+  setup.sh: |
+    #!/usr/bin/env bash
+    # Configures the store with wp-cli. Every step is safe to re-run (helm upgrade runs it again).
+    set -euo pipefail
+    log() { echo "[setup] $(date -u +%H:%M:%S) $*"; }
+
+    log "waiting for wp-config.php (written by the WordPress pod on first start)"
+    for i in $(seq 1 60); do
+      [ -s wp-config.php ] && break
+      sleep 5
+    done
+    [ -s wp-config.php ] || { log "wp-config.php never appeared"; exit 1; }
+
+    log "waiting for MariaDB"
+    for i in $(seq 1 60); do
+      if php -r '
+        [$h, $p] = array_pad(explode(":", getenv("WORDPRESS_DB_HOST")), 2, 3306);
+        $m = @new mysqli($h, getenv("WORDPRESS_DB_USER"), getenv("WORDPRESS_DB_PASSWORD"), getenv("WORDPRESS_DB_NAME"), (int)$p);
+        exit($m->connect_errno ? 1 : 0);'; then
+        break
+      fi
+      sleep 5
+    done
+
+    if wp core is-installed; then
+      log "WordPress core already installed"
+    else
+      log "installing WordPress core"
+      wp core install \
+        --url="$STORE_URL" \
+        --title="$STORE_TITLE" \
+        --admin_user="$ADMIN_USER" \
+        --admin_password="$ADMIN_PASSWORD" \
+        --admin_email="$ADMIN_EMAIL" \
+        --skip-email
+    fi
+
+    log "done"

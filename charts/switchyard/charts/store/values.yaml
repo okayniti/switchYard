@@ -20,3 +20,16 @@ wordpress:
   resources:
     requests: { cpu: 100m, memory: 192Mi }
     limits: { cpu: "1", memory: 512Mi }
+
+# Helm post-install/post-upgrade Job that configures the store with wp-cli. Idempotent.
+setup:
+  title: Switchyard Store
+  adminUser: admin
+  adminEmail: admin@example.com
+  # Pre-created Secret (prod) with key admin-password; empty = generated with lookup.
+  existingAdminSecret: ""
+  activeDeadlineSeconds: 600
+  backoffLimit: 3
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { cpu: "1", memory: 512Mi }

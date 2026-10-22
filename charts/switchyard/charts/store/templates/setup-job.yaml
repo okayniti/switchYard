@@ -1,0 +1,80 @@
+{{- $c := dict "root" . "component" "store-setup" }}
+# Runs after every install and upgrade. before-hook-creation deletes the previous run's Job
+# first, so its logs stay inspectable until the next upgrade.
+# No probes: a run-to-completion Job is bounded by activeDeadlineSeconds/backoffLimit instead.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: store-setup
+  namespace: {{ include "store.namespace" . }}
+  labels:
+    {{- include "store.labels" $c | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "0"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  activeDeadlineSeconds: {{ .Values.setup.activeDeadlineSeconds }}
+  backoffLimit: {{ .Values.setup.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "store.labels" $c | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 33
+        runAsGroup: 33
+        fsGroup: 33
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: setup
+          image: "{{ .Values.wordpress.image.repository }}:{{ .Values.wordpress.image.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: ["bash", "/scripts/setup.sh"]
+          workingDir: /var/www/html
+          env:
+            {{- include "store.wordpressEnv" . | nindent 12 }}
+            - name: HOME
+              value: /tmp
+            - name: STORE_URL
+              value: {{ include "store.url" . | quote }}
+            - name: STORE_TITLE
+              value: {{ .Values.setup.title | quote }}
+            - name: ADMIN_USER
+              value: {{ .Values.setup.adminUser | quote }}
+            - name: ADMIN_EMAIL
+              value: {{ .Values.setup.adminEmail | quote }}
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default "wordpress-admin" .Values.setup.existingAdminSecret }}
+                  key: admin-password
+          resources:
+            {{- toYaml .Values.setup.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: content
+              mountPath: /var/www/html
+              subPath: html
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: content
+          persistentVolumeClaim:
+            claimName: wordpress-content
+        - name: scripts
+          configMap:
+            name: store-setup
+        - name: tmp
+          emptyDir: {}
