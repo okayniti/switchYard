@@ -73,6 +73,25 @@ spec:
                 define('WP_SITEURL', '{{ $scheme }}://{{ .Values.global.hosts.shop }}');
                 define('FS_METHOD', 'direct');
                 define('DISABLE_WP_CRON', false);
+          resources:
+            {{- toYaml .Values.wordpress.resources | nindent 12 }}
+          # Readiness hits PHP + DB: an unhealthy store leaves the Service, so the Ingress
+          # stops routing to it. 2xx/3xx both count (302 before core is installed).
+          readinessProbe:
+            httpGet:
+              path: /wp-login.php
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Liveness only checks Apache accepts connections. A DB outage must not
+          # restart WordPress pods (that would turn one failure into a restart storm).
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            failureThreshold: 3
           securityContext:
             allowPrivilegeEscalation: false
             # Apache/PHP write only to the volumes below; the rest of the image is immutable.

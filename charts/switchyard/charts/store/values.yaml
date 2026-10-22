@@ -17,3 +17,6 @@ wordpress:
     repository: switchyard-wordpress
     tag: dev
   storage: 2Gi
+  resources:
+    requests: { cpu: 100m, memory: 192Mi }
+    limits: { cpu: "1", memory: 512Mi }
