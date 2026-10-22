@@ -17,6 +17,8 @@ wordpress:
     repository: switchyard-wordpress
     tag: dev
   storage: 2Gi
+  # WP_HTTP_BLOCK_EXTERNAL + no auto-updates + no in-dashboard file editor.
+  blockExternalHttp: true
   resources:
     requests: { cpu: 100m, memory: 192Mi }
     limits: { cpu: "1", memory: 512Mi }

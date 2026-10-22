@@ -39,6 +39,15 @@ reads these at runtime, so wp-cli in the Job needs them too.
     define('WP_HOME', '{{ include "store.url" . }}');
     define('WP_SITEURL', '{{ include "store.url" . }}');
     define('FS_METHOD', 'direct');
+    {{- if .Values.wordpress.blockExternalHttp }}
+    // The store needs no internet: WooCommerce is baked into the image. Blocking outbound
+    // HTTP stops update checks / remote marketing specs from stalling requests on a flaky
+    // network (and NetworkPolicy denies that egress anyway).
+    define('WP_HTTP_BLOCK_EXTERNAL', true);
+    define('AUTOMATIC_UPDATER_DISABLED', true);
+    define('WP_AUTO_UPDATE_CORE', false);
+    define('DISALLOW_FILE_EDIT', true);
+    {{- end }}
 {{- end -}}
 
 {{/* Selector labels: must never change after first install. */}}
