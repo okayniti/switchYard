@@ -74,4 +74,8 @@ data:
     # Shop / Cart / Checkout / My account pages; the tool skips pages that exist.
     wp wc tool run install_pages --user="$ADMIN_USER"
 
+    log "enable Cash on Delivery (DoD checkout method)"
+    wp wc payment_gateway update cod --enabled=true --user="$ADMIN_USER" --porcelain
+    wp wc payment_gateway get cod --field=enabled --user="$ADMIN_USER"
+
     log "done"
