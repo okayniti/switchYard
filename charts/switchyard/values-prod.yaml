@@ -1,0 +1,37 @@
+# Production-like VPS (k3s). Same charts as local; only these values change.
+# STUB: completed in Phase 7 (docs/VPS.md). Replace <...> placeholders.
+# Secrets are NOT generated here: create them out-of-band (scripts/bootstrap-secrets.sh,
+# Phase 7) and reference them via existingSecret, so they survive reinstalls and never
+# depend on Helm's lookup.
+
+global:
+  hosts:
+    shop: shop.<domain>        # or shop.<ip>.sslip.io
+    dashboard: yard.<domain>
+    mcp: mcp.<domain>
+  tls:
+    enabled: true
+    clusterIssuer: letsencrypt-prod
+  storageClassName: local-path  # k3s default; swap for a cloud/CSI class on managed clusters
+  imagePullPolicy: IfNotPresent
+
+store:
+  mariadb:
+    existingSecret: mariadb           # keys: mariadb-root-password, mariadb-password
+    storage: 5Gi
+    resources:
+      requests: { cpu: 200m, memory: 384Mi }
+      limits: { cpu: "1", memory: 768Mi }
+  wordpress:
+    image:
+      repository: ghcr.io/okayniti/switchyard-wordpress
+      tag: <git-sha>
+    storage: 5Gi
+    resources:
+      requests: { cpu: 200m, memory: 256Mi }
+      limits: { cpu: "1", memory: 768Mi }
+  setup:
+    adminEmail: <admin-email>
+    existingAdminSecret: wordpress-admin   # key: admin-password
+  wooApiKey:
+    existingSecret: woocommerce-api-key    # keys: consumer-key, consumer-secret (in store AND mcp)
