@@ -6,3 +6,5 @@ mariadb:
   existingSecret: ""
   database: wordpress
   username: wordpress
+  image: mariadb:11.8.9
+  storage: 2Gi
