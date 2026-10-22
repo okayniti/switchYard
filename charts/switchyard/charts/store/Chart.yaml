@@ -1,0 +1,6 @@
+apiVersion: v2
+name: store
+description: WordPress + WooCommerce storefront with MariaDB and a setup Job
+type: application
+version: 0.1.0
+appVersion: "7.1.3"
