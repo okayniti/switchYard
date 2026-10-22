@@ -67,7 +67,6 @@ data:
 
     log "skip onboarding, make the store public"
     wp option update woocommerce_onboarding_profile '{"skipped":true}' --format=json
-    wp option update woocommerce_task_list_hidden "yes"
     # New WooCommerce stores start in "coming soon" mode, which hides the storefront.
     wp option update woocommerce_coming_soon "no"
     wp option update woocommerce_store_pages_only "no"
