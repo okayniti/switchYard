@@ -11,3 +11,12 @@ RUN set -eux; \
     echo "${WP_CLI_SHA512}  /usr/local/bin/wp" | sha512sum -c -; \
     chmod +x /usr/local/bin/wp; \
     wp --allow-root --version
+
+# Pinned WooCommerce, verified by checksum. The setup Job installs it from this local
+# file (wp plugin install --force), so a WooCommerce bump = new image + helm upgrade,
+# even when the WordPress PVC already holds an older copy.
+ARG WOOCOMMERCE_VERSION=11.2.1
+ADD --checksum=sha256:5317434cb381b5fdc7c1dd6ee258324f08c390976aaf8d1199f2a0e9a3ab8586 \
+    https://downloads.wordpress.org/plugin/woocommerce.${WOOCOMMERCE_VERSION}.zip \
+    /usr/src/woocommerce.zip
+RUN chmod 0644 /usr/src/woocommerce.zip
