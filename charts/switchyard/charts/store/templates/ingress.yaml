@@ -1,0 +1,31 @@
+{{- $c := dict "root" . "component" "wordpress" }}
+# Public storefront. Local: http://shop.localtest.me (resolves to 127.0.0.1 -> k3d LB -> Traefik).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: storefront
+  namespace: {{ include "store.namespace" . }}
+  labels:
+    {{- include "store.labels" $c | nindent 4 }}
+  {{- if and .Values.global.tls.enabled .Values.global.tls.clusterIssuer }}
+  annotations:
+    cert-manager.io/cluster-issuer: {{ .Values.global.tls.clusterIssuer }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.global.ingressClassName }}
+  {{- if .Values.global.tls.enabled }}
+  tls:
+    - hosts: [{{ .Values.global.hosts.shop | quote }}]
+      secretName: storefront-tls
+  {{- end }}
+  rules:
+    - host: {{ .Values.global.hosts.shop | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: wordpress
+                port:
+                  name: http
