@@ -1,0 +1,17 @@
+{{- $c := dict "root" . "component" "wordpress" }}
+# ClusterIP: reached by the Ingress (storefront) and by woo-mcp (REST API). Port 80 -> Apache on 8080.
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress
+  namespace: {{ include "store.namespace" . }}
+  labels:
+    {{- include "store.labels" $c | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "store.selectorLabels" $c | nindent 4 }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
