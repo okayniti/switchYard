@@ -4,3 +4,8 @@ description: WooCommerce hosting with a Team MCP Gateway on Kubernetes (umbrella
 type: application
 version: 0.1.0
 appVersion: "0.1.0"
+# Subcharts are vendored in charts/; Helm 4 lint requires them to be declared here.
+dependencies:
+  - name: store
+    version: 0.1.0
+    condition: store.enabled
