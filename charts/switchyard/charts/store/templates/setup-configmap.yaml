@@ -14,6 +14,16 @@ data:
     set -euo pipefail
     log() { echo "[setup] $(date -u +%H:%M:%S) $*"; }
 
+    # Every wp-cli call is bounded, and slow ones are named in the log, so a hang fails
+    # fast (the Job retries) instead of silently eating activeDeadlineSeconds.
+    wp() {
+      local start=$SECONDS rc=0
+      timeout 120 /usr/local/bin/wp "$@" || rc=$?
+      if (( SECONDS - start > 10 )); then log "slow: wp $1 ${2:-} took $((SECONDS - start))s"; fi
+      if (( rc == 124 )); then log "timeout: wp $*"; fi
+      return $rc
+    }
+
     log "waiting for wp-config.php (written by the WordPress pod on first start)"
     for i in $(seq 1 60); do
       [ -s wp-config.php ] && break
