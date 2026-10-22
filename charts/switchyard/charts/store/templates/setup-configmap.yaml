@@ -45,4 +45,33 @@ data:
         --skip-email
     fi
 
+    # --- WooCommerce: installed from the zip baked into the image (no runtime download) ---
+    installed="$(wp plugin get woocommerce --field=version 2>/dev/null || true)"
+    if [ "$installed" != "$WOOCOMMERCE_VERSION" ]; then
+      log "installing WooCommerce $WOOCOMMERCE_VERSION (found: ${installed:-none})"
+      wp plugin install /usr/src/woocommerce.zip --force
+    fi
+    wp plugin is-active woocommerce || wp plugin activate woocommerce
+    # Run any pending WooCommerce DB migrations (needed after a version bump).
+    wp wc update
+
+    log "store settings: Asia/Kolkata, INR, India address, pretty permalinks"
+    wp option update timezone_string "Asia/Kolkata"
+    wp rewrite structure '/%postname%/' --hard
+    wp option update woocommerce_currency "INR"
+    wp option update woocommerce_default_country "IN:KA"
+    wp option update woocommerce_store_address "1 MG Road"
+    wp option update woocommerce_store_city "Bengaluru"
+    wp option update woocommerce_store_postcode "560001"
+    wp option update woocommerce_calc_taxes "no"
+
+    log "skip onboarding, make the store public"
+    wp option update woocommerce_onboarding_profile '{"skipped":true}' --format=json
+    wp option update woocommerce_task_list_hidden "yes"
+    # New WooCommerce stores start in "coming soon" mode, which hides the storefront.
+    wp option update woocommerce_coming_soon "no"
+    wp option update woocommerce_store_pages_only "no"
+    # Shop / Cart / Checkout / My account pages; the tool skips pages that exist.
+    wp wc tool run install_pages --user="$ADMIN_USER"
+
     log "done"
