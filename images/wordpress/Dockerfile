@@ -20,3 +20,12 @@ ADD --checksum=sha256:5317434cb381b5fdc7c1dd6ee258324f08c390976aaf8d1199f2a0e9a3
     https://downloads.wordpress.org/plugin/woocommerce.${WOOCOMMERCE_VERSION}.zip \
     /usr/src/woocommerce.zip
 RUN chmod 0644 /usr/src/woocommerce.zip
+
+# Run as www-data (uid 33), not root. Unprivileged users can't bind port 80,
+# so Apache listens on 8080; the Service maps 80 -> 8080.
+RUN set -eux; \
+    sed -i 's/^Listen 80$/Listen 8080/' /etc/apache2/ports.conf; \
+    sed -i 's/<VirtualHost \*:80>/<VirtualHost *:8080>/' /etc/apache2/sites-available/000-default.conf; \
+    grep -q '^Listen 8080$' /etc/apache2/ports.conf
+EXPOSE 8080
+USER 33:33
