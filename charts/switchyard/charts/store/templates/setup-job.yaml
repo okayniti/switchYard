@@ -53,6 +53,20 @@ spec:
                 secretKeyRef:
                   name: {{ default "wordpress-admin" .Values.setup.existingAdminSecret }}
                   key: admin-password
+            - name: API_USER
+              value: {{ .Values.setup.apiUser | quote }}
+            - name: API_USER_EMAIL
+              value: {{ .Values.setup.apiUserEmail | quote }}
+            - name: WC_CONSUMER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default .Values.wooApiKey.secretName .Values.wooApiKey.existingSecret }}
+                  key: consumer-key
+            - name: WC_CONSUMER_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default .Values.wooApiKey.secretName .Values.wooApiKey.existingSecret }}
+                  key: consumer-secret
           resources:
             {{- toYaml .Values.setup.resources | nindent 12 }}
           securityContext:

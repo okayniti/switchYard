@@ -21,6 +21,13 @@ wordpress:
     requests: { cpu: 100m, memory: 192Mi }
     limits: { cpu: "1", memory: 512Mi }
 
+# WooCommerce REST API key (ck_/cs_). Generated once with lookup and written to the store
+# namespace (for the setup Job) and the mcp namespace (for woo-mcp) — Secrets can't be
+# read across namespaces. existingSecret: pre-created in BOTH namespaces (prod).
+wooApiKey:
+  existingSecret: ""
+  secretName: woocommerce-api-key
+
 # Helm post-install/post-upgrade Job that configures the store with wp-cli. Idempotent.
 setup:
   title: Switchyard Store
@@ -28,6 +35,9 @@ setup:
   adminEmail: admin@example.com
   # Pre-created Secret (prod) with key admin-password; empty = generated with lookup.
   existingAdminSecret: ""
+  # WooCommerce REST key for woo-mcp: owned by this shop_manager user (not the admin).
+  apiUser: woo-mcp
+  apiUserEmail: woo-mcp@example.invalid
   activeDeadlineSeconds: 600
   backoffLimit: 3
   resources:

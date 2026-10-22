@@ -95,4 +95,30 @@ data:
     seed SY-DIYA-01     "Brass Diya"                        "549" 25
     seed SY-CUSHION-01  "Jaipur Block Print Cushion Cover"  "699" 30
 
+    log "register the WooCommerce REST key for woo-mcp"
+    # Least privilege: the key belongs to a shop_manager (products + orders), not the admin.
+    wp user get "$API_USER" --field=ID >/dev/null 2>&1 || \
+      wp user create "$API_USER" "$API_USER_EMAIL" --role=shop_manager --porcelain >/dev/null
+    # Same row format as WooCommerce's own key creation (WC_Auth::create_keys): the consumer
+    # key is stored as hmac-sha256(key, 'wc-api'), the secret as-is, plus the last 7 chars.
+    # Delete-then-insert keyed on the description keeps re-runs idempotent.
+    wp eval '
+      global $wpdb;
+      $table = $wpdb->prefix . "woocommerce_api_keys";
+      $desc  = "switchyard woo-mcp";
+      $ck    = getenv("WC_CONSUMER_KEY");
+      $cs    = getenv("WC_CONSUMER_SECRET");
+      $user  = get_user_by("login", getenv("API_USER"));
+      $wpdb->delete($table, array("description" => $desc));
+      $ok = $wpdb->insert($table, array(
+        "user_id"         => $user->ID,
+        "description"     => $desc,
+        "permissions"     => "read_write",
+        "consumer_key"    => wc_api_hash($ck),
+        "consumer_secret" => $cs,
+        "truncated_key"   => substr($ck, -7),
+      ));
+      if (!$ok) { fwrite(STDERR, "key insert failed: " . $wpdb->last_error . "\n"); exit(1); }
+      echo "registered key ..." . substr($ck, -7) . " for user " . $user->user_login . "\n";'
+
     log "done"
