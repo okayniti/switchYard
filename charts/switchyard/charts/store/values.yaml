@@ -8,3 +8,6 @@ mariadb:
   username: wordpress
   image: mariadb:11.8.9
   storage: 2Gi
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: "1", memory: 512Mi }

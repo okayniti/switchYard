@@ -48,6 +48,27 @@ spec:
                 secretKeyRef:
                   name: {{ include "store.mariadbSecretName" . }}
                   key: mariadb-root-password
+          resources:
+            {{- toYaml .Values.mariadb.resources | nindent 12 }}
+          # healthcheck.sh ships with the image and authenticates with the healthcheck
+          # user the entrypoint creates (credentials in /var/lib/mysql/.my-healthcheck.cnf).
+          startupProbe:
+            exec:
+              command: ["healthcheck.sh", "--connect", "--innodb_initialized"]
+            periodSeconds: 5
+            failureThreshold: 60   # first-boot init can take a while; up to 5 min
+          readinessProbe:
+            exec:
+              command: ["healthcheck.sh", "--connect", "--innodb_initialized"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: ["healthcheck.sh", "--connect", "--innodb_initialized"]
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
