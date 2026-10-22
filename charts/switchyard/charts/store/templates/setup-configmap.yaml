@@ -57,7 +57,8 @@ data:
 
     log "store settings: Asia/Kolkata, INR, India address, pretty permalinks"
     wp option update timezone_string "Asia/Kolkata"
-    wp rewrite structure '/%postname%/' --hard
+    # The official image already ships the WordPress .htaccess, so no --hard rewrite.
+    wp rewrite structure '/%postname%/'
     wp option update woocommerce_currency "INR"
     wp option update woocommerce_default_country "IN:KA"
     wp option update woocommerce_store_address "1 MG Road"
