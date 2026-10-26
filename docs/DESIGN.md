@@ -238,7 +238,10 @@ namespace is the next hardening step.
 - **Consumed only via `secretKeyRef`**, so values never appear in a manifest. The gateway's
   `DATABASE_URL` uses Kubernetes `$(PGPASSWORD)` expansion.
 - **LLM key:** passed at install (`make up LLM_API_KEY=…` → `--set-string`, never echoed),
-  stored in Secret `llm`, and kept by `lookup` when later installs omit it.
+  or set on its own with `make llm-key`, which applies only that Secret (manifest on stdin)
+  and restarts the gateway. It's stored in Secret `llm` and kept by `lookup` when later
+  installs omit it. The model and provider are plain values (`gateway.llm.model`,
+  `gateway.llm.baseUrl`), so switching a retired model is a `helm upgrade`, not a rebuild.
 - **Production:** store secrets use `existingSecret` (created out-of-band; see README). They
   survive a reinstall and don't depend on `lookup`.
 - **`helm.sh/resource-policy: keep`** is set on the store Secrets and PVC, so `helm
