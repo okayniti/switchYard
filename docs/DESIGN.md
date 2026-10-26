@@ -144,6 +144,10 @@ Three different kinds of secret, stored three different ways, because they are u
 - **Origin check on `/mcp`:** before anything else, a request carrying an `Origin` header that
   isn't in `MCP_ALLOWED_ORIGINS` (default the dashboard origin) is refused with 403, as the MCP
   Streamable HTTP spec requires against DNS rebinding. CLI clients send no `Origin` and pass.
+- **SSRF guard on upstream URLs:** when a server is added or its URL edited, and before every
+  connect, the host is resolved and refused if any address is loopback, link-local (incl.
+  169.254.169.254) or unspecified. Names matching `UPSTREAM_ALLOWED_HOSTS` (default
+  `*.svc.cluster.local`) skip the check. Private ranges are allowed, since cluster Services use them.
 - **Roles:** `admin` manages servers and members and sees the whole audit log; `member` uses the
   tools, manages their own keys and sees their own audit rows. Every `/api` route checks the
   session and role on the server; the dashboard hiding a button is only convenience.
