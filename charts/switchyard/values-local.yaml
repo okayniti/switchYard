@@ -2,6 +2,9 @@
 # *.localtest.me is public DNS that resolves to 127.0.0.1 (fallback: add the three hosts
 # to /etc/hosts or C:\Windows\System32\drivers\etc\hosts). k3d maps host 80/443 to Traefik.
 # No secrets here: Helm generates them in-cluster on first install (lookup keeps them stable).
+#
+# Sized for a laptop with 8 GB RAM (WSL/Docker capped at 5 GB): minimal requests/limits
+# plus DB/Apache tuning. values-prod.yaml keeps the larger defaults.
 
 global:
   hosts:
@@ -16,14 +19,54 @@ global:
 
 mariadb:
   storage: 2Gi
+  # Default InnoDB buffer pool is 128M and performance_schema ~100M; neither is needed here.
+  args:
+    - --innodb-buffer-pool-size=64M
+    - --performance-schema=OFF
+    - --max-connections=30
   resources:
-    requests: { cpu: 100m, memory: 256Mi }
-    limits: { cpu: "1", memory: 512Mi }
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 256Mi }
+
 wordpress:
   image:
     repository: switchyard-wordpress
     tag: dev
   storage: 2Gi
+  apache:
+    startServers: 1
+    maxRequestWorkers: 4     # each worker is a PHP process; 4 fit in the 256Mi limit
   resources:
-    requests: { cpu: 100m, memory: 192Mi }
-    limits: { cpu: "1", memory: 512Mi }
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: "1", memory: 256Mi }
+
+setup:
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: "1", memory: 256Mi }
+
+wooMcp:
+  resources:
+    requests: { cpu: 25m, memory: 64Mi }
+    limits: { cpu: 500m, memory: 256Mi }
+
+shippingMcp:
+  resources:
+    requests: { cpu: 25m, memory: 64Mi }
+    limits: { cpu: 500m, memory: 256Mi }
+
+everythingMcp:
+  resources:
+    requests: { cpu: 25m, memory: 64Mi }
+    limits: { cpu: 500m, memory: 256Mi }
+
+gateway:
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { cpu: "1", memory: 256Mi }
+
+postgres:
+  args: ["-c", "shared_buffers=32MB", "-c", "max_connections=20", "-c", "work_mem=2MB"]
+  resources:
+    requests: { cpu: 25m, memory: 64Mi }
+    limits: { cpu: 500m, memory: 256Mi }
