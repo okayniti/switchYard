@@ -193,7 +193,42 @@ Try: *"What orders came in today?"*, or *"Look up order 20 and quote express shi
 
 ## Use the chat agent
 
-*(Owned by the gateway/dashboard session.)*
+Dashboard → **Chat**. Ask in plain language, e.g. *"Create a product called Brass Lamp priced at
+799"* or *"What orders came in today?"*. Under each answer the dashboard lists every tool the agent
+called, with its arguments, result, duration and whether it succeeded.
+
+- The agent calls tools **through the gateway's own `/mcp` as you**: for each message it mints a
+  10-minute key for your user and revokes it afterwards. It can do exactly what you can, and its
+  calls appear in the **Audit log** under your name with source `chat`.
+- At most 8 tool-calling steps per message; each tool result is capped at 4,000 characters.
+- The LLM key never reaches the browser.
+
+### The LLM model is a Helm value, and providers retire models
+
+Provider and model are plain chart values: `gateway.llm.baseUrl` (default Groq,
+`https://api.groq.com/openai/v1`) and `gateway.llm.model` (default `openai/gpt-oss-120b`). Any
+OpenAI-compatible Chat Completions endpoint works, **as long as the model supports tool calling**.
+
+Providers retire models. Groq retired `llama-3.3-70b-versatile`, which this project first used, and
+chat then failed with `HTTP 404 model_not_found`. To switch:
+
+```bash
+# 1. See which models your key can use (run inside the gateway pod; the key isn't printed)
+kubectl exec -n platform deploy/gateway -- node -e 'fetch(process.env.LLM_BASE_URL+"/models",
+  {headers:{authorization:"Bearer "+process.env.LLM_API_KEY}}).then(r=>r.json())
+  .then(j=>console.log(j.data.map(m=>m.id).sort().join("\n")))'
+
+# 2. Point the gateway at one (no image rebuild; the pod restarts with the new env)
+helm upgrade switchyard charts/switchyard -f charts/switchyard/values-local.yaml \
+  --set gateway.llm.model=<model> --wait
+```
+
+To make it permanent, change `gateway.llm.model` in `values.yaml` (or `values-prod.yaml`).
+
+**Free-tier rate limits:** Groq's free tier allows about 8,000 tokens per minute for
+`gpt-oss-120b`, and one chat turn with all 25 tools is about 2,400 tokens. The gateway waits and
+retries on HTTP 429 (up to 3 times, 30 s total); beyond that the chat shows the provider's
+rate-limit message. Wait a minute, or use a paid tier.
 
 ## Production-like deployment (VPS with k3s)
 
