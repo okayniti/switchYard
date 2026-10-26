@@ -41,9 +41,11 @@ wordpress:
     limits: { cpu: "1", memory: 256Mi }
 
 setup:
+  # wp-cli loads all of WooCommerce; 256Mi was OOM-killed flushing rewrite rules.
+  # Short-lived and runs alone, so a higher limit costs nothing at steady state.
   resources:
     requests: { cpu: 50m, memory: 128Mi }
-    limits: { cpu: "1", memory: 256Mi }
+    limits: { cpu: "1", memory: 384Mi }
 
 wooMcp:
   resources:
