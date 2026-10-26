@@ -304,8 +304,11 @@ What makes this safe:
 ## What's done / what's not
 
 An honest inventory; it matches [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md). "Verified" means
-run against the local cluster during development. The end-to-end Definition of Done check
-(`scripts/dod.ts`, `make dod`) is owned by the gateway session.
+run against the local cluster during development. The end-to-end Definition of Done check is
+**`make dod`** ([scripts/dod.ts](scripts/dod.ts)): the nine DoD checks with two users (A = admin
+using chat, B = member using an external MCP client via the MCP SDK). Each prints PASS/FAIL with
+evidence; `make dod ONLY=3,6` runs a subset. It needs a running cluster and an LLM key, and
+checks 1, 2, 5, 7 and 9 use the free-tier LLM quota (see "Free-tier rate limits" above).
 
 ### Built
 
