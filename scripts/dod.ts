@@ -270,12 +270,23 @@ checks.push({
   async run() {
     type Srv = { slug: string; status: string; reason: string | null };
     const everything = async () => ((await A("/servers")).body as Srv[]).find((s) => s.slug === "everything")!;
-    const kubectl = (args: string) => execSync(`kubectl ${args}`, { stdio: "pipe" }).toString().trim();
+    // On a loaded laptop the kube API sometimes times out (TLS handshake timeout). Retry, so a
+    // blip can't leave everything-mcp scaled to 0 after the check.
+    const kubectl = async (args: string): Promise<string> => {
+      for (let attempt = 1; ; attempt++) {
+        try {
+          return execSync(`kubectl --request-timeout=10s ${args}`, { stdio: "pipe" }).toString().trim();
+        } catch (err) {
+          if (attempt >= 5) throw err;
+          await sleep(3000);
+        }
+      }
+    };
     // Scale to 0 rather than delete the pod: a Deployment would recreate a deleted pod within
     // seconds, possibly before the 15 s health check notices it was gone.
-    kubectl("scale deploy/everything-mcp -n mcp --replicas=0");
+    await kubectl("scale deploy/everything-mcp -n mcp --replicas=0");
     try {
-      kubectl("wait --for=delete pod -l app.kubernetes.io/name=everything-mcp -n mcp --timeout=60s");
+      await kubectl("wait --for=delete pod -l app.kubernetes.io/name=everything-mcp -n mcp --timeout=60s");
       let ev = await everything();
       for (let i = 0; i < 30 && ev.status !== "unreachable"; i++) {
         await sleep(1000);
@@ -289,7 +300,7 @@ checks.push({
         evidence: [`everything-mcp scaled to 0; dashboard /api/servers -> ${ev.status} (${ev.reason})`, `woo__list_products -> ${woo.isError ? "ERROR" : "ok"}`, `everything__echo -> ${short(text(dead), 150)}`],
       };
     } finally {
-      kubectl("scale deploy/everything-mcp -n mcp --replicas=1");
+      await kubectl("scale deploy/everything-mcp -n mcp --replicas=1");
       let ev = await everything();
       for (let i = 0; i < 60 && ev.status !== "connected"; i++) {
         await sleep(2000);
