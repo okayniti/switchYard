@@ -338,7 +338,8 @@ for (const c of selected) {
   try {
     out = await c.run();
   } catch (err) {
-    out = { pass: false, evidence: [`threw: ${short((err as Error).message, 300)}`] };
+    const cause = (err as { cause?: { code?: string; message?: string } }).cause;
+    out = { pass: false, evidence: [`threw: ${short((err as Error).message, 300)}${cause ? ` (cause: ${cause.code ?? ""} ${short(cause.message ?? "", 160)})` : ""}`] };
   }
   results.push({ n: c.n, pass: out.pass });
   console.log(`\n[${out.pass ? "PASS" : "FAIL"}] ${c.n}. ${c.name}\n${out.evidence.map((e) => `    ${e}`).join("\n")}`);
