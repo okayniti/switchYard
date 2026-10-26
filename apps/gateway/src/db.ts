@@ -8,8 +8,23 @@ export const pool = new pg.Pool({ connectionString: config.databaseUrl, max: 10 
 
 const MIGRATIONS_DIR = new URL("../migrations/", import.meta.url);
 
+// On first boot the gateway can start before Postgres accepts connections. Retry with
+// exponential backoff (0.5 s, 1 s, 2 s … capped at 5 s) for up to ~60 s before giving up.
+export async function connectWithRetry(deadlineMs = 60_000, connect = () => pool.connect()): Promise<pg.PoolClient> {
+  const start = Date.now();
+  for (let attempt = 1, delay = 500; ; attempt++, delay = Math.min(delay * 2, 5_000)) {
+    try {
+      return await connect();
+    } catch (err) {
+      if (Date.now() - start + delay > deadlineMs) throw err;
+      console.warn(`postgres not ready (attempt ${attempt}: ${(err as Error).message}); retrying in ${delay} ms`);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+}
+
 export async function migrate(): Promise<void> {
-  const client = await pool.connect();
+  const client = await connectWithRetry();
   try {
     await client.query("SELECT pg_advisory_lock(42424242)");
     await client.query("CREATE TABLE IF NOT EXISTS schema_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())");
