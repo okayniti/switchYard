@@ -13,6 +13,7 @@ import { McpError, ToolListChangedNotificationSchema, type CallToolResult, type 
 import { config } from "./config.js";
 import { decrypt } from "./crypto.js";
 import { pool } from "./db.js";
+import { checkUpstreamUrl } from "./ssrf.js";
 
 export type Status = "connected" | "unreachable" | "disabled";
 
@@ -128,6 +129,9 @@ export class UpstreamManager extends EventEmitter {
   }
 
   private async connect(u: Upstream): Promise<Client> {
+    // Re-check on every connect: DNS may now point somewhere it didn't when the admin saved it.
+    const blockedReason = await checkUpstreamUrl(u.row.url, config.upstreamAllowedHosts);
+    if (blockedReason) throw new Error(blockedReason);
     const client = new Client({ name: "switchyard-gateway", version: "1.0.0" });
     const transport = new StreamableHTTPClientTransport(new URL(u.row.url), {
       requestInit: { headers: this.headers(u.row), redirect: "manual" },

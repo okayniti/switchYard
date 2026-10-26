@@ -25,6 +25,7 @@ export const config = {
   },
   publicMcpUrl: opt("PUBLIC_MCP_URL", "http://mcp.localtest.me/mcp"),
   mcpAllowedOrigins: opt("MCP_ALLOWED_ORIGINS", "http://yard.localtest.me"),
+  upstreamAllowedHosts: opt("UPSTREAM_ALLOWED_HOSTS", "*.svc.cluster.local").split(","),
   selfMcpUrl: opt("SELF_MCP_URL", `http://127.0.0.1:${port}/mcp`),
   llm: {
     baseUrl: opt("LLM_BASE_URL", "https://api.groq.com/openai/v1"),

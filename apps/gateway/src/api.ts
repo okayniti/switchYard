@@ -9,6 +9,7 @@ import { config } from "./config.js";
 import { encrypt, newApiKey } from "./crypto.js";
 import { pool } from "./db.js";
 import { closeSessionsForKey } from "./mcp.js";
+import { checkUpstreamUrl } from "./ssrf.js";
 import { upstreams } from "./upstreams.js";
 
 const SLUG_RE = /^[a-z][a-z0-9_]{1,15}$/;
@@ -75,6 +76,8 @@ export function apiRouter() {
     if (!["none", "bearer", "header"].includes(authType)) return void bad(res, "authType must be none, bearer or header");
     if (authType === "header" && !authHeader) return void bad(res, "authHeader is required when authType is header");
     if (authType !== "none" && !credential) return void bad(res, "credential is required for this authType");
+    const blocked = await checkUpstreamUrl(url, config.upstreamAllowedHosts);
+    if (blocked) return void bad(res, blocked);
     try {
       await pool.query("INSERT INTO servers (slug, name, url, auth_type, auth_header, credential_enc) VALUES ($1, $2, $3, $4, $5, $6)", [
         slug,
@@ -107,6 +110,10 @@ export function apiRouter() {
       credential_enc: b.credential === null ? null : str(b.credential) ? encrypt(str(b.credential)) : cur.credential_enc,
     };
     if (!validUrl(next.url)) return void bad(res, "url must be an http(s) URL");
+    if (next.url !== cur.url) {
+      const blocked = await checkUpstreamUrl(next.url, config.upstreamAllowedHosts);
+      if (blocked) return void bad(res, blocked);
+    }
     if (!["none", "bearer", "header"].includes(next.auth_type)) return void bad(res, "authType must be none, bearer or header");
     if (next.auth_type === "none") next.credential_enc = null;
     await pool.query(
