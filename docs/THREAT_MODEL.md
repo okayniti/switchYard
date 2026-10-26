@@ -64,8 +64,6 @@ gateway's audit log is the source of truth for "who did what".
 
 ## 2. Why client tokens are not passed through to upstream servers
 
-*(gateway: implementation details.)*
-
 The gateway terminates authentication, then calls each upstream with **its own**
 per-upstream credential. The MCP authorization spec forbids token passthrough:
 
@@ -76,6 +74,23 @@ per-upstream credential. The MCP authorization spec forbids token passthrough:
 - **Loss of control:** policy, revocation and audit live at the gateway. Passthrough lets
   the upstream make those decisions, and lets a revoked key keep working wherever it was
   copied.
+
+**How the gateway implements it:**
+
+- **Two separate connections, two separate identities.** `/mcp` ([mcp.ts](../apps/gateway/src/mcp.ts))
+  validates the client's `Authorization: Bearer syk_…` and is done with it. Calls to upstreams go
+  over the gateway's own long-lived MCP clients ([upstreams.ts](../apps/gateway/src/upstreams.ts)),
+  whose only headers are that server's stored credential. No code path copies a header from the
+  incoming request to an outgoing one; `executeToolCall` passes the upstream only the tool name
+  and arguments.
+- **One upstream connection serves every member.** The upstream session isn't per user, so
+  there is nothing user-specific it could receive or replay.
+- **The chat agent follows the same rule.** It mints its own short-lived gateway key for the
+  user and calls `/mcp`; it never touches upstream credentials, and its key is useless against any
+  upstream.
+- **What a malicious upstream can capture:** only the credential the admin configured for *that*
+  upstream (which it already knows) plus the tool arguments sent to it. Never a member's key, the
+  dashboard cookie, or another upstream's credential.
 
 **Infrastructure support:**
 - Upstream credentials and client keys are different secrets in different places. Upstream
