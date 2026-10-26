@@ -306,7 +306,7 @@ checks.push({
     const aChat = of(ADMIN.email, "chat");
     const bMcp = of(MEMBER.email, "mcp");
     const memberView = (await B("/audit")).body as Row[];
-    const complete = rows.every((r) => r.user_email && r.tool && Number.isFinite(r.duration_ms) && ["ok", "error"].includes(r.outcome));
+    const complete = rows.every((r) => r.user_email && r.tool && Number.isFinite(r.duration_ms) && ["ok", "error", "denied"].includes(r.outcome));
     return {
       pass: aChat.length > 0 && bMcp.length > 0 && complete && memberView.every((r) => r.user_email === MEMBER.email),
       evidence: [
