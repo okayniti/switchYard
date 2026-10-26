@@ -148,7 +148,7 @@ gateway:
   memberEmail: member@switchyard.local
   llm:
     baseUrl: https://api.groq.com/openai/v1   # any OpenAI-compatible endpoint
-    model: llama-3.3-70b-versatile
+    model: openai/gpt-oss-120b
     # NEVER commit a key here. Pass at install: make up LLM_API_KEY=... (kept in the llm Secret).
     apiKey: ""
   resources:
