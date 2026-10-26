@@ -6,11 +6,11 @@ metadata:
   name: mariadb
   namespace: {{ include "store.namespace" . }}
   labels:
-    {{- include "store.labels" $c | nindent 4 }}
+    {{- include "switchyard.labels" $c | nindent 4 }}
 spec:
   clusterIP: None
   selector:
-    {{- include "store.selectorLabels" $c | nindent 4 }}
+    {{- include "switchyard.selectorLabels" $c | nindent 4 }}
   ports:
     - name: mysql
       port: 3306

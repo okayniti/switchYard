@@ -6,7 +6,7 @@ metadata:
   name: store-setup
   namespace: {{ include "store.namespace" . }}
   labels:
-    {{- include "store.labels" $c | nindent 4 }}
+    {{- include "switchyard.labels" $c | nindent 4 }}
 data:
   setup.sh: |
     #!/usr/bin/env bash

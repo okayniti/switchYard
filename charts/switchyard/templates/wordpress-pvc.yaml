@@ -6,7 +6,7 @@ metadata:
   name: wordpress-content
   namespace: {{ include "store.namespace" . }}
   labels:
-    {{- include "store.labels" $c | nindent 4 }}
+    {{- include "switchyard.labels" $c | nindent 4 }}
   annotations:
     helm.sh/resource-policy: keep
 spec:

@@ -5,7 +5,7 @@ metadata:
   name: wordpress
   namespace: {{ include "store.namespace" . }}
   labels:
-    {{- include "store.labels" $c | nindent 4 }}
+    {{- include "switchyard.labels" $c | nindent 4 }}
 spec:
   replicas: 1
   # The content volume is ReadWriteOnce: stop the old pod before starting the new one.
@@ -13,11 +13,11 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      {{- include "store.selectorLabels" $c | nindent 6 }}
+      {{- include "switchyard.selectorLabels" $c | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "store.labels" $c | nindent 8 }}
+        {{- include "switchyard.labels" $c | nindent 8 }}
     spec:
       automountServiceAccountToken: false
       securityContext:
