@@ -34,6 +34,8 @@ Off-the-shelf `@modelcontextprotocol/server-everything@2.0.0 streamableHttp`; li
 
 ## gateway (namespace `platform`; serves `/mcp`, `/api/*` and the dashboard UI)
 
+Probes: liveness `GET /healthz` (process up), readiness `GET /readyz` (also checks Postgres; 503 if the DB is down). Upstream health never affects either probe.
+
 One Service, two Ingress hosts: `hosts.dashboard` (UI + `/api`) and `hosts.mcp` (`/mcp`). Both route
 to the same gateway Service port 8080.
 
@@ -41,7 +43,7 @@ to the same gateway Service port 8080.
 |------|----------|--------|-------------------|-------|
 | `PORT` | no | | `8080` | |
 | `DATABASE_URL` | yes | **yes** | `postgres://gateway:…@postgres.platform.svc.cluster.local:5432/gateway` | SQL migrations run on startup. |
-| `SESSION_SECRET` | yes | **yes** | random 32+ chars | Signs the dashboard session cookie. |
+| `SESSION_SECRET` | no (unused) | | | Not read. Sessions are random 256-bit tokens stored as SHA-256 in Postgres, so nothing needs signing. Safe to keep or drop. |
 | `GATEWAY_ENC_KEY` | yes | **yes** | 32 random bytes, base64 (`openssl rand -base64 32`) | AES-256-GCM key for upstream credentials at rest. |
 | `ADMIN_EMAIL` | yes | | `admin@switchyard.local` | Seeded admin (created if missing). |
 | `ADMIN_PASSWORD` | yes | **yes** | | |
