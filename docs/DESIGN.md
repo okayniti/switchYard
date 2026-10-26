@@ -113,8 +113,9 @@ gets `notifications/tools/list_changed`. Clients that hold a session (Claude Cod
 re-list tools. The chat agent lists tools at the start of every request, so it always sees the
 current set.
 
-**Limits.** MCP sessions live in the gateway's memory, so it runs as **one replica**; a restart
-makes clients re-initialize (they do this automatically on 404). Running several replicas would
+**Limits.** MCP sessions live in the gateway's memory, so it runs as **one replica**; after a
+restart the gateway answers old session ids with 404, and the MCP spec requires the client to
+start a new session. Running several replicas would
 need sticky sessions at the Ingress or the SDK's session-less mode.
 
 ## Kubernetes
