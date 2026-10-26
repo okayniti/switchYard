@@ -403,27 +403,42 @@ make dod ONLY=1,2,3,4,5,6,7,9   # 3-7, 9 PASS together; 1 and 2 PASS on re-run
 
 ## How I used AI
 
-> **TODO (Niti): rewrite this section in your own words before submitting.** The draft below
-> is a factual starting point.
+I built this with Claude Code. It wrote most of the code, charts and docs; I set the plan and the
+rules, made the calls, and checked the results against the running system. I'm happy to walk
+through any line.
 
-Claude Code wrote most of the code and configuration in this repo. I directed it from a plan,
-made the design decisions, reviewed what it produced, and tested the system myself.
+**How the work was set up**
 
-- **Plan first.** I wrote `PLAYBOOK.md` (architecture, phases, commit discipline) and
-  `CLAUDE.md` (rules Claude Code loads every session: commit after every step, never commit
-  secrets, never claim something works without running it, ask before anything costly or
-  destructive). `docs/ASSIGNMENT.md` is the brief, kept as the source of truth.
-- **Decisions were mine.** Examples: the MCP SDK version and Node 24; an admin can issue keys
-  for members (the brief overrides the playbook); key revocation must not depend on sessions;
-  the store talks to woo-mcp only through the WooCommerce REST API; and sizing everything to
-  fit an 8 GB laptop.
-- **Two parallel Claude Code sessions,** each owning separate paths. One built the apps
-  (`apps/`: woo-mcp, shipping-mcp, the gateway, the dashboard, the chat). The other built the
-  platform (Helm chart, Makefile, scripts, store image, infrastructure docs). They
-  coordinated through `docs/ENV.md`, the env-var contract between the apps and the chart.
-- **Verification.** Every step was run against the real cluster before it was committed, and
-  failures became their own `fix:` commits. That's why the history is granular, and why it
-  shows mistakes and their fixes, including a rollback after a bad upgrade.
-- **What I did by hand:** *(TODO: list what you personally checked, e.g. reviewing diffs and the
-  design and threat-model docs, the manual COD checkout, the dashboard and chat flows,
-  connecting Claude Code / Cursor with your key.)*
+- **Rules before code.** `PLAYBOOK.md` is my design and phase plan, and `CLAUDE.md` holds the rules
+  Claude Code loads every session: commit after every step, never commit secrets, never claim
+  something works without running it, and ask before anything that costs money or deletes data.
+  `docs/ASSIGNMENT.md` stays the source of truth when the playbook disagrees with it.
+- **Two sessions in parallel**, because time was short. One owned `apps/` (woo-mcp, shipping-mcp,
+  gateway, dashboard, chat); the other owned the Helm chart, Makefile, scripts and store image.
+  Their only contract was [docs/ENV.md](docs/ENV.md), the env var names. On an 8 GB laptop I
+  later made the infra session the only one allowed to build images and deploy.
+- **Time boxes.** On the last day I fell back from the MCP SDK v2 experiment to the stable v1
+  (1.32.1), and gave late items like the SSRF guard, Origin check and `denied` audit rows
+  15–40 minute limits, to be dropped and documented if they fought back.
+
+**Decisions I made or approved** (examples): the MCP SDK version; REST + OAuth1 for woo-mcp instead of WP-CLI
+or SQL; key revocation checked on every request rather than tied to sessions; admins may issue
+keys for members; a threat model that says plainly what is *not* built instead of listing
+planned features as done; switching the LLM to `openai/gpt-oss-120b` when Groq retired the
+original model; and accepting "check 8 alone, the rest together" for `make dod` on this laptop.
+
+**What verification caught.** Insisting on real evidence mattered, because the AI did make mistakes:
+
+- A commit swept the other session's staged files into it (they share one git index). It was
+  caught before pushing and redone; since then commits name their exact paths.
+- The first threat-model draft credited the gateway with protections it didn't have (rate
+  limits, SSRF guard, tool permissions). It was rewritten to match the code; the SSRF guard (and
+  Origin validation) were then actually built, and the rest are listed as gaps.
+- Chat was "configured" but broken twice: an empty LLM key Secret, then a retired model. Both
+  showed up only because `make dod` runs the real flow against the cluster.
+- The DoD script itself had bugs (a false PASS on check 7, a check that rejected valid `denied`
+  rows). Each became its own `fix:` commit; the history keeps the mistakes on purpose.
+
+**What I did by hand:** *(Niti: list what you personally ran and checked, e.g. a storefront
+checkout in the browser, the dashboard and chat flows, connecting Claude Code with your key,
+reviewing the design and threat-model docs.)*
