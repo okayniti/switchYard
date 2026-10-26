@@ -25,3 +25,9 @@ test("garbage bodies don't throw and are still labelled", () => {
   assert.equal(deniedCallLabel({ method: "tools/call", params: { name: "nounderscore" } }).serverSlug, null);
   assert.equal(deniedCallLabel({ method: "tools/call", params: { name: "x".repeat(500) } }).tool.length, 200);
 });
+
+test("body-less requests are labelled by HTTP method", () => {
+  assert.equal(deniedCallLabel(undefined, "GET").tool, "GET /mcp (event stream)");
+  assert.equal(deniedCallLabel(undefined, "DELETE").tool, "DELETE /mcp (end session)");
+  assert.equal(deniedCallLabel({ method: "tools/list" }, "POST").tool, "tools/list");
+});

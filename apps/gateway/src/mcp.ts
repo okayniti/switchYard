@@ -56,7 +56,11 @@ export async function authenticateKey(header: string | undefined): Promise<CallC
 
 // What a rejected request was trying to do, for its audit row: "<server>__<tool>" for a tool
 // call, otherwise the JSON-RPC method ("tools/list", "initialize"...). Batches use the first entry.
-export function deniedCallLabel(body: unknown): { tool: string; serverSlug: string | null; args: string | null } {
+// Requests without a JSON-RPC body (GET = open the event stream, DELETE = end the session) are
+// labelled by HTTP method.
+export function deniedCallLabel(body: unknown, httpMethod = "POST"): { tool: string; serverSlug: string | null; args: string | null } {
+  if (httpMethod === "GET") return { tool: "GET /mcp (event stream)", serverSlug: null, args: null };
+  if (httpMethod === "DELETE") return { tool: "DELETE /mcp (end session)", serverSlug: null, args: null };
   const msg = (Array.isArray(body) ? body[0] : body) as { method?: unknown; params?: { name?: unknown; arguments?: unknown } } | undefined;
   if (msg?.method === "tools/call" && typeof msg.params?.name === "string") {
     const name = msg.params.name.slice(0, 200);
@@ -67,7 +71,7 @@ export function deniedCallLabel(body: unknown): { tool: string; serverSlug: stri
 
 // A request with a key that exists but is revoked or expired is attributable to its owner, so it
 // gets an audit row with outcome 'denied'. Unknown keys can't be attributed and are only rejected.
-async function auditDenied(header: string | undefined, body: unknown): Promise<void> {
+async function auditDenied(header: string | undefined, body: unknown, httpMethod: string): Promise<void> {
   const m = /^Bearer\s+(\S+)$/i.exec(header ?? "");
   if (!m) return;
   const { rows } = await pool.query<{ id: number; user_id: number; email: string; kind: string; revoked: boolean }>(
@@ -77,7 +81,7 @@ async function auditDenied(header: string | undefined, body: unknown): Promise<v
   );
   const k = rows[0];
   if (!k) return;
-  const call = deniedCallLabel(body);
+  const call = deniedCallLabel(body, httpMethod);
   await pool.query(
     `INSERT INTO audit_log (user_id, user_email, api_key_id, source, server_slug, tool, duration_ms, outcome, error, args_preview)
      VALUES ($1, $2, $3, $4, $5, $6, 0, 'denied', $7, $8)`,
@@ -123,7 +127,7 @@ async function handle(req: Request, res: Response): Promise<void> {
   }
   const ctx = await authenticateKey(req.headers.authorization);
   if (!ctx) {
-    await auditDenied(req.headers.authorization, req.body).catch((err) => console.error("audit of denied request failed:", err));
+    await auditDenied(req.headers.authorization, req.body, req.method).catch((err) => console.error("audit of denied request failed:", err));
     res.set("WWW-Authenticate", 'Bearer realm="switchyard"');
     rpcError(res, 401, "Invalid, revoked or missing API key. Create one in the Switchyard dashboard.");
     return;
