@@ -15,23 +15,22 @@ global:
   storageClassName: local-path  # k3s default; swap for a cloud/CSI class on managed clusters
   imagePullPolicy: IfNotPresent
 
-store:
-  mariadb:
-    existingSecret: mariadb           # keys: mariadb-root-password, mariadb-password
-    storage: 5Gi
-    resources:
-      requests: { cpu: 200m, memory: 384Mi }
-      limits: { cpu: "1", memory: 768Mi }
-  wordpress:
-    image:
-      repository: ghcr.io/okayniti/switchyard-wordpress
-      tag: <git-sha>
-    storage: 5Gi
-    resources:
-      requests: { cpu: 200m, memory: 256Mi }
-      limits: { cpu: "1", memory: 768Mi }
-  setup:
-    adminEmail: <admin-email>
-    existingAdminSecret: wordpress-admin   # key: admin-password
-  wooApiKey:
-    existingSecret: woocommerce-api-key    # keys: consumer-key, consumer-secret (in store AND mcp)
+mariadb:
+  existingSecret: mariadb           # keys: mariadb-root-password, mariadb-password
+  storage: 5Gi
+  resources:
+    requests: { cpu: 200m, memory: 384Mi }
+    limits: { cpu: "1", memory: 768Mi }
+wordpress:
+  image:
+    repository: ghcr.io/okayniti/switchyard-wordpress
+    tag: <git-sha>
+  storage: 5Gi
+  resources:
+    requests: { cpu: 200m, memory: 256Mi }
+    limits: { cpu: "1", memory: 768Mi }
+setup:
+  adminEmail: <admin-email>
+  existingAdminSecret: wordpress-admin   # key: admin-password
+wooApiKey:
+  existingSecret: woocommerce-api-key    # keys: consumer-key, consumer-secret (in store AND mcp)

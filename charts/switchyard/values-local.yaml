@@ -14,17 +14,16 @@ global:
   # Images are built locally and loaded with `k3d image import`, never pulled.
   imagePullPolicy: IfNotPresent
 
-store:
-  mariadb:
-    storage: 2Gi
-    resources:
-      requests: { cpu: 100m, memory: 256Mi }
-      limits: { cpu: "1", memory: 512Mi }
-  wordpress:
-    image:
-      repository: switchyard-wordpress
-      tag: dev
-    storage: 2Gi
-    resources:
-      requests: { cpu: 100m, memory: 192Mi }
-      limits: { cpu: "1", memory: 512Mi }
+mariadb:
+  storage: 2Gi
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: "1", memory: 512Mi }
+wordpress:
+  image:
+    repository: switchyard-wordpress
+    tag: dev
+  storage: 2Gi
+  resources:
+    requests: { cpu: 100m, memory: 192Mi }
+    limits: { cpu: "1", memory: 512Mi }

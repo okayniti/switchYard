@@ -19,5 +19,50 @@ global:
   storageClassName: local-path
   imagePullPolicy: IfNotPresent
 
-store:
-  enabled: true
+# ---------------- store namespace ----------------
+
+mariadb:
+  # Set to the name of a pre-created Secret (prod) to skip generation. It must contain
+  # the keys mariadb-root-password and mariadb-password.
+  existingSecret: ""
+  database: wordpress
+  username: wordpress
+  image: mariadb:11.8.9
+  storage: 2Gi
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: "1", memory: 512Mi }
+
+wordpress:
+  image:
+    repository: switchyard-wordpress
+    tag: dev
+  storage: 2Gi
+  # WP_HTTP_BLOCK_EXTERNAL + no auto-updates + no in-dashboard file editor.
+  blockExternalHttp: true
+  resources:
+    requests: { cpu: 100m, memory: 192Mi }
+    limits: { cpu: "1", memory: 512Mi }
+
+# WooCommerce REST API key (ck_/cs_). Generated once with lookup and written to the store
+# namespace (for the setup Job) and the mcp namespace (for woo-mcp) — Secrets can't be
+# read across namespaces. existingSecret: pre-created in BOTH namespaces (prod).
+wooApiKey:
+  existingSecret: ""
+  secretName: woocommerce-api-key
+
+# Helm post-install/post-upgrade Job that configures the store with wp-cli. Idempotent.
+setup:
+  title: Switchyard Store
+  adminUser: admin
+  adminEmail: admin@example.com
+  # Pre-created Secret (prod) with key admin-password; empty = generated with lookup.
+  existingAdminSecret: ""
+  # WooCommerce REST key for woo-mcp: owned by this shop_manager user (not the admin).
+  apiUser: woo-mcp
+  apiUserEmail: woo-mcp@example.invalid
+  activeDeadlineSeconds: 600
+  backoffLimit: 3
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { cpu: "1", memory: 512Mi }
