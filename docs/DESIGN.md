@@ -81,6 +81,42 @@ Server 'shipping' is unreachable (connection refused, last checked 2026-10-26T11
 Other servers are unaffected.
 ```
 
+### Timeouts and failure handling
+
+The rule: **one bad upstream only ever affects its own tools.**
+
+| Situation | What the gateway does | What the client sees |
+|-----------|-----------------------|----------------------|
+| Upstream slow on a call | the call is aborted after **15 s** (`TOOL_TIMEOUT_MS`) | `isError`: "Tool 'x' timed out after 15002 ms on server 'y'. Other servers are unaffected." |
+| Upstream dead (pod killed, refused, DNS fails) | the next health check (≤ 15 s) marks it **Unreachable** with a reason; its tools drop out of the cache; open sessions get `tools/list_changed` | its tools disappear; a direct call gets "unreachable (connection refused…)" |
+| Upstream comes back | the next health check reconnects from scratch; tools return; `list_changed` again | its tools reappear |
+| Upstream restarted and forgot our MCP session | it answers HTTP 404; the call never ran there, so the gateway reconnects and **retries once** | nothing; the call succeeds |
+| Upstream returns a JSON-RPC error (bad args) | passed through as a tool error; the server stays Connected | the upstream's message |
+| Admin disables a server | status **Disabled**, tools removed, `list_changed` sent | "Server 'x' is disabled by an admin." |
+| Upstream rejects our credential | **Unreachable**, reason "rejected credentials (HTTP 401)" | dashboard shows why |
+
+**Health loop.** Every 15 s (`HEALTH_INTERVAL_MS`), all servers are checked **in parallel**, each
+with `tools/list` under a **5 s** timeout. Success = Connected and a fresh tool snapshot. Failure =
+Unreachable plus a short reason (connection refused, DNS lookup failed, timed out, HTTP 401/404…)
+and the time of the check, which is what the dashboard shows. On failure the client object is
+thrown away, so recovery never depends on resuming a half-broken connection.
+
+**Why only a 404 is retried.** A timeout or a dropped connection may have reached the upstream
+and run the tool (for example `create_product`), so retrying could do it twice. A 404 for our
+session id means the upstream rejected the request before running anything.
+
+**Isolation from Kubernetes probes.** The gateway's readiness checks only Postgres, and liveness
+only the process. An upstream outage never takes the gateway out of its Service.
+
+**Notifying clients.** When the set of tool names in the cache changes, every open `/mcp` session
+gets `notifications/tools/list_changed`. Clients that hold a session (Claude Code, MCP Inspector)
+re-list tools. The chat agent lists tools at the start of every request, so it always sees the
+current set.
+
+**Limits.** MCP sessions live in the gateway's memory, so it runs as **one replica**; a restart
+makes clients re-initialize (they do this automatically on 404). Running several replicas would
+need sticky sessions at the Ingress or the SDK's session-less mode.
+
 ## Kubernetes
 
 Everything is in **one Helm chart**, `charts/switchyard`. `values-local.yaml` (k3d) and
