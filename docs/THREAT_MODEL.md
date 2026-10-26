@@ -10,8 +10,6 @@ the AES master key and the DB password. If it's compromised, everything it can r
 exposed. That is why only it may reach woo-mcp (NetworkPolicy), and why it has no Kubernetes
 API access (`automountServiceAccountToken: false`, no RBAC).
 
-Sections marked *(gateway)* are owned by the gateway session and describe code in `apps/gateway`.
-
 ---
 
 ## 1. Shared upstream credentials: what can a member do with a credential they never see?
