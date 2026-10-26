@@ -18,7 +18,7 @@ key_gateway      := gateway
 image_exists = $(shell docker image inspect switchyard-$(1):$(TAG) >/dev/null 2>&1 && echo yes)
 DISABLED_FLAGS = $(foreach a,$(APPS),$(if $(call image_exists,$(a)),,--set $(key_$(a)).enabled=false))
 
-.PHONY: help up down cluster images import install status admin-password gateway-admin-password
+.PHONY: help up down cluster images import install status admin-password gateway-admin-password llm-key
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  %-24s %s\n", $$1, $$2}'
@@ -51,6 +51,15 @@ install: ## helm upgrade --install with local values
 	@helm upgrade --install $(RELEASE) $(CHART) -f $(VALUES) $(DISABLED_FLAGS) \
 	  $(if $(LLM_API_KEY),--set-string gateway.llm.apiKey=$(LLM_API_KEY)) \
 	  --wait --wait-for-jobs --timeout 15m
+
+llm-key: ## Set ONLY the LLM key Secret and restart the gateway: make llm-key LLM_API_KEY=...
+	@test -n "$(LLM_API_KEY)" || { echo "usage: make llm-key LLM_API_KEY=<key>" >&2; exit 1; }
+	@# Manifest goes to kubectl on stdin, so the key never appears in the echoed command.
+	@# Later `make install` runs without LLM_API_KEY keep it (the template reuses it via lookup).
+	@printf 'apiVersion: v1\nkind: Secret\nmetadata:\n  name: llm\n  namespace: platform\ntype: Opaque\ndata:\n  api-key: %s\n' \
+	  "$$(printf '%s' '$(LLM_API_KEY)' | base64 | tr -d '\n')" | kubectl apply -f - 2>&1 | grep -v last-applied-configuration
+	kubectl rollout restart deployment/gateway -n platform
+	kubectl rollout status deployment/gateway -n platform --timeout=180s
 
 admin-password: ## Print the WordPress admin login (user: admin)
 	@kubectl get secret wordpress-admin -n store -o jsonpath='{.data.admin-password}' | base64 -d; echo
