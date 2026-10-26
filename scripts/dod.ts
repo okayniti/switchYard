@@ -194,6 +194,32 @@ checks.push({
   },
 });
 
+checks.push({
+  n: 6,
+  name: "admin revokes B's key; B's next call (same open session) is rejected",
+  async run() {
+    const b = await clientB();
+    const before = await b.call("woo__list_products", { per_page: 1 });
+    const users = (await A("/users")).body as { email: string; keys: { id: number; name: string; revoked_at: string | null }[] }[];
+    const key = users.find((u) => u.email === MEMBER.email)?.keys.find((k) => !k.revoked_at && k.name === `dod ${stamp}`);
+    const rev = await A(`/keys/${key?.id}`, "DELETE");
+    let after: string;
+    let rejected = false;
+    try {
+      await b.call("woo__list_products", { per_page: 1 });
+      after = "call SUCCEEDED after revoke";
+    } catch (err) {
+      rejected = err instanceof StreamableHTTPError && err.code === 401;
+      after = `rejected: HTTP ${(err as StreamableHTTPError).code} ${short((err as Error).message, 140)}`;
+    }
+    state.clientB = undefined; // later checks need a fresh key
+    return {
+      pass: !before.isError && rev.status === 200 && rejected,
+      evidence: [`before revoke: woo__list_products ${before.isError ? "ERROR" : "ok"}`, `admin DELETE /api/keys/${key?.id} -> ${rev.status}`, after],
+    };
+  },
+});
+
 // ---------- runner ----------
 const only = (process.env.ONLY ?? "").split(",").map((s) => Number(s.trim())).filter(Boolean);
 const selected = checks.filter((c) => !only.length || only.includes(c.n));
