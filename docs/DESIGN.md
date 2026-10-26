@@ -19,7 +19,67 @@
 ```
 
 Gateway internals (aggregation, routing, naming/collisions, failure handling, auth, audit,
-chat loop) are described in the gateway section below. *(Owned by the gateway session.)*
+chat loop) are described in the gateway section below.
+
+## Gateway
+
+One Node process (`apps/gateway`, Express 5, MCP TypeScript SDK 1.32.1) plays both MCP roles:
+
+- **Client side** ([upstreams.ts](../apps/gateway/src/upstreams.ts)): one long-lived MCP `Client`
+  per enabled upstream.
+- **Server side** ([mcp.ts](../apps/gateway/src/mcp.ts)): one `/mcp` endpoint for every team
+  member.
+
+It also serves `/api/*` for the dashboard, the dashboard itself, and `/healthz` + `/readyz`.
+Postgres holds users, sessions, key hashes, servers (with encrypted credentials) and the audit log.
+
+### Tool aggregation, routing and name collisions
+
+**Aggregation.** The gateway keeps a **tool cache**: the union of the tool lists of every server
+that is enabled and currently Connected. The cache is refreshed by the health loop (every 15 s),
+immediately after any admin change, and when an upstream sends `notifications/tools/list_changed`.
+`tools/list` on `/mcp` is answered **from the cache only**. It never waits on an upstream, so a
+slow or dead server can't stall or break the listing of the others.
+
+**Naming (the collision scheme).** Every tool is exposed as `<server slug>__<tool name>`, for
+every server, not only when names clash:
+
+| Upstream | Upstream tool | Exposed as |
+|----------|---------------|------------|
+| woo | `search` | `woo__search` |
+| shipping | `search` | `shipping__search` |
+| everything | `echo` | `everything__echo` |
+
+- **Why always, not only on collision:** names are deterministic. Adding a server never renames
+  a tool that clients, prompts or audit queries already use.
+- **Why `__`:** slugs are `^[a-z][a-z0-9_]{1,15}$` (enforced by a DB `CHECK`), and MCP clients
+  accept `[a-zA-Z0-9_-]{1,64}`. The first `__` in a name ends the slug.
+- **Too long or odd characters:** if `<slug>__<tool>` is over 64 characters or contains other
+  characters, it is truncated and suffixed with 8 hex chars of its SHA-256. That is deterministic
+  too, and the router keeps the exposed→original mapping.
+- **Provenance:** each description is prefixed with the server's display name, e.g.
+  `[WooCommerce store] List orders, newest first…`, so a model and a human can see where a tool
+  comes from.
+
+**Routing.** `tools/call` for `woo__list_orders` goes to `executeToolCall`
+([execute.ts](../apps/gateway/src/execute.ts)), the single function both `/mcp` and the chat agent
+use:
+
+1. Look the exposed name up in the cache → server `woo`, upstream tool `list_orders`.
+2. If it isn't there, explain why: unknown server, server disabled by an admin, or server
+   unreachable (with the reason and when it was last checked).
+3. Forward `tools/call` with the original name over that server's client, with a timeout.
+4. Return the upstream's result unchanged (including `isError` results).
+5. Write one `audit_log` row: user, API key, source (`mcp` or `chat`), server, tool, timestamp,
+   duration, outcome, error text, and the first 500 chars of the arguments.
+
+Failures are returned as **tool results with `isError: true`** and a sentence a person can act on,
+not as protocol errors, so an MCP client or the LLM sees the reason:
+
+```
+Server 'shipping' is unreachable (connection refused, last checked 2026-10-26T11:45:02Z).
+Other servers are unaffected.
+```
 
 ## Kubernetes
 
