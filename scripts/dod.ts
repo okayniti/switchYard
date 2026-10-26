@@ -160,6 +160,17 @@ checks.push({
   },
 });
 
+checks.push({
+  n: 4,
+  name: "B asks today's orders through the external client",
+  async run() {
+    const id = await orderId();
+    const r = await (await clientB()).call("woo__list_orders", { date: "today" });
+    const t = text(r);
+    return { pass: !r.isError && t.includes(`"id": ${id}`), evidence: [`expects order #${id}`, `woo__list_orders {date:"today"} -> ${short(t, 260)}`] };
+  },
+});
+
 // ---------- runner ----------
 const only = (process.env.ONLY ?? "").split(",").map((s) => Number(s.trim())).filter(Boolean);
 const selected = checks.filter((c) => !only.length || only.includes(c.n));
