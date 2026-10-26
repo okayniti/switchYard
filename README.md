@@ -35,7 +35,7 @@ Host ports **80 and 443** must be free (k3d maps them to the cluster's Traefik i
 **Windows:**
 - Run every `make` and `scripts/*.sh` command from **Git Bash**, not PowerShell or cmd.
 - Install make with winget, Chocolatey or Scoop, and k3d, Helm and gitleaks with winget
-  (`winget install k3d.k3d Helm.Helm Gitleaks.Gitleaks`). Open a new terminal afterwards so
+  (`winget install -e --id k3d.k3d`, then `Helm.Helm`, then `Gitleaks.Gitleaks`). Open a new terminal afterwards so
   they're on `PATH`.
 - If `*.localtest.me` doesn't resolve on your network, use the
   [hosts-file fallback](#local-domains-localtestme).
