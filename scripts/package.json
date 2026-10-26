@@ -1,0 +1,11 @@
+{
+  "name": "switchyard-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Operational scripts: the Definition-of-Done check (make dod)",
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1"
+  }
+}

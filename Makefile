@@ -18,7 +18,7 @@ key_gateway      := gateway
 image_exists = $(shell docker image inspect switchyard-$(1):$(TAG) >/dev/null 2>&1 && echo yes)
 DISABLED_FLAGS = $(foreach a,$(APPS),$(if $(call image_exists,$(a)),,--set $(key_$(a)).enabled=false))
 
-.PHONY: help up down cluster images import install status admin-password gateway-admin-password llm-key
+.PHONY: help up down cluster images import install status admin-password gateway-admin-password llm-key dod
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  %-24s %s\n", $$1, $$2}'
@@ -67,6 +67,11 @@ admin-password: ## Print the WordPress admin login (user: admin)
 gateway-admin-password: ## Print the dashboard admin + member passwords
 	@echo -n "admin  (admin@switchyard.local):  "; kubectl get secret gateway -n platform -o jsonpath='{.data.admin-password}' | base64 -d; echo
 	@echo -n "member (member@switchyard.local): "; kubectl get secret gateway -n platform -o jsonpath='{.data.member-password}' | base64 -d; echo
+
+dod: ## Run the Definition-of-Done checks against the cluster (ONLY=3,6 to pick)
+	@ADMIN_PASSWORD="$$(kubectl get secret gateway -n platform -o jsonpath='{.data.admin-password}' | base64 -d)" \
+	 MEMBER_PASSWORD="$$(kubectl get secret gateway -n platform -o jsonpath='{.data.member-password}' | base64 -d)" \
+	 ONLY="$(ONLY)" node --experimental-strip-types --no-warnings scripts/dod.ts
 
 status: ## Show what is running
 	kubectl get pods,pvc,svc,ingress,networkpolicy -n store
