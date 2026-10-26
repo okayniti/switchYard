@@ -29,7 +29,7 @@ export const config = {
   selfMcpUrl: opt("SELF_MCP_URL", `http://127.0.0.1:${port}/mcp`),
   llm: {
     baseUrl: opt("LLM_BASE_URL", "https://api.groq.com/openai/v1"),
-    model: opt("LLM_MODEL", "llama-3.3-70b-versatile"),
+    model: opt("LLM_MODEL", "openai/gpt-oss-120b"),
     apiKey: process.env.LLM_API_KEY ?? "",
   },
   cookieSecure: opt("COOKIE_SECURE", "false") === "true",

@@ -57,7 +57,7 @@ to the same gateway Service port 8080.
 | `MCP_ALLOWED_ORIGINS` | no | | `http://yard.localtest.me` | Comma-separated origins allowed to call `/mcp` from a browser (set to the dashboard URL, `http(s)://<hosts.dashboard>`). Requests without an `Origin` header (CLI clients) are always allowed. |
 | `UPSTREAM_ALLOWED_HOSTS` | no | | `*.svc.cluster.local` | Comma-separated host patterns (`*.suffix` or exact) that skip the SSRF address check. Every other upstream host is resolved and refused if it maps to loopback, link-local/metadata or unspecified. |
 | `LLM_BASE_URL` | no | | `https://api.groq.com/openai/v1` | Any OpenAI-compatible Chat Completions endpoint. |
-| `LLM_MODEL` | no | | `llama-3.3-70b-versatile` | |
+| `LLM_MODEL` | no | | `openai/gpt-oss-120b` | Must support tool calling. Groq retired `llama-3.3-70b-versatile`. |
 | `LLM_API_KEY` | yes (for chat) | **yes** | | Chat returns a clear error if unset. |
 | `COOKIE_SECURE` | no | | `false` local, `true` prod (TLS) | |
 | `HEALTH_INTERVAL_MS` | no | | `15000` | Upstream health-check period. |
