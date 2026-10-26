@@ -118,6 +118,52 @@ restart the gateway answers old session ids with 404, and the MCP spec requires 
 start a new session. Running several replicas would
 need sticky sessions at the Ingress or the SDK's session-less mode.
 
+### Users, API keys and upstream credentials
+
+Three different kinds of secret, stored three different ways, because they are used differently:
+
+| Secret | Stored as | Why |
+|--------|-----------|-----|
+| Dashboard password | **bcrypt** (cost 10) | low-entropy, chosen by a person: needs a slow hash |
+| Gateway API key `syk_…` (32 random bytes) | **SHA-256** + 12-char display prefix | high-entropy, so nothing to brute-force; checked on every `/mcp` request, where bcrypt's ~50 ms would be paid on every call |
+| Upstream credential (bearer token or custom header) | **AES-256-GCM** ciphertext (`iv ‖ tag ‖ ct`) | the gateway must send the original value upstream, so it needs reversible encryption, not a hash |
+
+- **Dashboard sessions:** login sets an `httpOnly`, `SameSite=Lax` cookie (`Secure` with TLS)
+  holding a random 256-bit token; the DB stores only its SHA-256, with a 12 h expiry. A login for
+  an unknown email still runs a bcrypt compare, so response time doesn't reveal which emails exist.
+- **API keys are shown once** (on creation) and can be revoked by their owner or by an admin. The
+  `/mcp` check is `key_hash = sha256(presented) AND revoked_at IS NULL AND not expired`, run on
+  **every request**, so a revoked key fails on its very next call even inside an open session.
+  Revoking also closes that key's open sessions, but that is cleanup, not the enforcement.
+- **Sessions are bound to their key.** A request that presents key B with a session opened by
+  key A is rejected (403).
+- **Upstream credentials are write-only.** The admin types one in when adding or editing a server.
+  The API stores the ciphertext and from then on only reports `hasCredential: true`; there is no
+  endpoint that returns it. It is decrypted in memory only when building that upstream's client.
+  The master key `GATEWAY_ENC_KEY` is a Kubernetes Secret (see Secrets above).
+- **Roles:** `admin` manages servers and members and sees the whole audit log; `member` uses the
+  tools, manages their own keys and sees their own audit rows. Every `/api` route checks the
+  session and role on the server; the dashboard hiding a button is only convenience.
+
+### Chat agent
+
+The chat runs in the gateway backend, so the browser never sees the LLM key or any upstream
+credential. **It is a real MCP client of the gateway's own `/mcp`:**
+
+1. `POST /api/chat` (session cookie) mints a **10-minute `chat` API key for the logged-in user**.
+2. It connects to `http://127.0.0.1:8080/mcp` with that key and lists tools, through the same auth
+   and the same cache as any external client.
+3. It calls the LLM (any OpenAI-compatible Chat Completions API; Groq `llama-3.3-70b-versatile`
+   by default) with the tools and a system prompt that includes the current time in Asia/Kolkata.
+4. For each tool call the model asks for, it calls `tools/call` on `/mcp`, and feeds the result
+   back (capped at 4,000 characters).
+5. It repeats until the model answers in text, at most **8 iterations**, then revokes the key.
+
+So the agent can do exactly what that user can do, and every call it makes is in the audit log
+under that user with `source = chat`. The response lists every tool call (name, arguments,
+duration, ok/error, result preview), which the dashboard shows. An LLM error (bad key, rate
+limit, timeout) comes back as a clear message and nothing crashes.
+
 ## Kubernetes
 
 Everything is in **one Helm chart**, `charts/switchyard`. `values-local.yaml` (k3d) and
