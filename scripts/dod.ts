@@ -220,6 +220,36 @@ checks.push({
   },
 });
 
+checks.push({
+  n: 7,
+  name: "admin disables shipping; its tools disappear from the external client and from chat",
+  async run() {
+    const b = await clientB();
+    const shippingTools = async () => (await b.names()).filter((n) => n.startsWith("shipping__")).length;
+    const before = await shippingTools();
+    const ship = ((await A("/servers")).body as { id: number; slug: string }[]).find((s) => s.slug === "shipping")!;
+    const dis = await A(`/servers/${ship.id}`, "PATCH", { enabled: false });
+    try {
+      await sleep(1000); // let list_changed reach the client
+      const after = await shippingTools();
+      const direct = await b.call("shipping__list_zones");
+      const c = await chat(A, "Quote standard shipping to PIN 110001 for 2 kg. If you have no shipping tool, say so.");
+      const chatShipping = (c.toolCalls ?? []).filter((t) => t.name.startsWith("shipping__") && t.ok).length;
+      return {
+        pass: dis.body.status === "disabled" && before > 0 && after === 0 && Boolean(direct.isError) && chatShipping === 0,
+        evidence: [
+          `PATCH enabled=false -> ${dis.body.status}; list_changed notifications at B: ${b.changed}`,
+          `B's shipping tools: ${before} before, ${after} after; direct call -> ${short(text(direct), 90)}`,
+          `chat while disabled: tool calls ${describeCalls(c)}; reply: ${short(c.reply, 140)}`,
+        ],
+      };
+    } finally {
+      const en = await A(`/servers/${ship.id}`, "PATCH", { enabled: true });
+      console.log(`    (shipping re-enabled -> ${en.body.status})`);
+    }
+  },
+});
+
 // ---------- runner ----------
 const only = (process.env.ONLY ?? "").split(",").map((s) => Number(s.trim())).filter(Boolean);
 const selected = checks.filter((c) => !only.length || only.includes(c.n));
