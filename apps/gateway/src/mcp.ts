@@ -54,6 +54,37 @@ export async function authenticateKey(header: string | undefined): Promise<CallC
   return { userId: k.user_id, email: k.email, apiKeyId: k.id, source: k.kind === "chat" ? "chat" : "mcp" };
 }
 
+// What a rejected request was trying to do, for its audit row: "<server>__<tool>" for a tool
+// call, otherwise the JSON-RPC method ("tools/list", "initialize"...). Batches use the first entry.
+export function deniedCallLabel(body: unknown): { tool: string; serverSlug: string | null; args: string | null } {
+  const msg = (Array.isArray(body) ? body[0] : body) as { method?: unknown; params?: { name?: unknown; arguments?: unknown } } | undefined;
+  if (msg?.method === "tools/call" && typeof msg.params?.name === "string") {
+    const name = msg.params.name.slice(0, 200);
+    return { tool: name, serverSlug: name.includes("__") ? name.split("__")[0] : null, args: JSON.stringify(msg.params.arguments ?? {}).slice(0, 500) };
+  }
+  return { tool: typeof msg?.method === "string" ? msg.method.slice(0, 100) : "(unknown request)", serverSlug: null, args: null };
+}
+
+// A request with a key that exists but is revoked or expired is attributable to its owner, so it
+// gets an audit row with outcome 'denied'. Unknown keys can't be attributed and are only rejected.
+async function auditDenied(header: string | undefined, body: unknown): Promise<void> {
+  const m = /^Bearer\s+(\S+)$/i.exec(header ?? "");
+  if (!m) return;
+  const { rows } = await pool.query<{ id: number; user_id: number; email: string; kind: string; revoked: boolean }>(
+    `SELECT k.id, k.user_id, u.email, k.kind, k.revoked_at IS NOT NULL AS revoked
+     FROM api_keys k JOIN users u ON u.id = k.user_id WHERE k.key_hash = $1`,
+    [sha256(m[1])],
+  );
+  const k = rows[0];
+  if (!k) return;
+  const call = deniedCallLabel(body);
+  await pool.query(
+    `INSERT INTO audit_log (user_id, user_email, api_key_id, source, server_slug, tool, duration_ms, outcome, error, args_preview)
+     VALUES ($1, $2, $3, $4, $5, $6, 0, 'denied', $7, $8)`,
+    [k.user_id, k.email, k.id, k.kind === "chat" ? "chat" : "mcp", call.serverSlug, call.tool, k.revoked ? "API key revoked" : "API key expired", call.args],
+  );
+}
+
 function newServer(ctx: CallContext): Server {
   const server = new Server({ name: "switchyard-gateway", version: "1.0.0" }, { capabilities: { tools: { listChanged: true } } });
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: upstreams.listTools() }));
@@ -92,6 +123,7 @@ async function handle(req: Request, res: Response): Promise<void> {
   }
   const ctx = await authenticateKey(req.headers.authorization);
   if (!ctx) {
+    await auditDenied(req.headers.authorization, req.body).catch((err) => console.error("audit of denied request failed:", err));
     res.set("WWW-Authenticate", 'Bearer realm="switchyard"');
     rpcError(res, 401, "Invalid, revoked or missing API key. Create one in the Switchyard dashboard.");
     return;

@@ -271,7 +271,7 @@ function AuditLog() {
             {rows.map((a) => (
               <tr key={a.id} title={a.args_preview}>
                 <td>{fmt(a.ts)}</td><td>{a.user_email}</td><td>{a.source}</td><td>{a.server_slug}</td><td><code>{a.tool}</code></td><td>{a.duration_ms} ms</td>
-                <td>{a.outcome === "ok" ? <span className="badge connected">ok</span> : <><span className="badge unreachable">error</span> <span className="muted">{a.error}</span></>}</td>
+                <td>{a.outcome === "ok" ? <span className="badge connected">ok</span> : <><span className={`badge ${a.outcome === "denied" ? "disabled" : "unreachable"}`}>{a.outcome}</span> <span className="muted">{a.error}</span></>}</td>
               </tr>
             ))}
           </tbody>
