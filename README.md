@@ -439,6 +439,4 @@ original model; and accepting "check 8 alone, the rest together" for `make dod` 
 - The DoD script itself had bugs (a false PASS on check 7, a check that rejected valid `denied`
   rows). Each became its own `fix:` commit; the history keeps the mistakes on purpose.
 
-**What I did by hand:** *(Niti: list what you personally ran and checked, e.g. a storefront
-checkout in the browser, the dashboard and chat flows, connecting Claude Code with your key,
-reviewing the design and threat-model docs.)*
+**What I did myself:** Claude Code wrote most of the code, but I set the plan and decided what to cut when time ran short. I ran two Claude Code sessions in parallel with clear ownership, one for the apps and one for the chart and infrastructure, each owning its own part of the repo. I chose the MCP SDK v1 over the v2 experiment, the Groq model once the original was retired, and the memory sizing that lets the whole stack run on an 8 GB laptop. I placed the storefront checkout and handled the API keys and the LLM key myself, and I reviewed every report the sessions gave me before accepting the work.
