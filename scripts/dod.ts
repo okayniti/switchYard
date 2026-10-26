@@ -250,6 +250,42 @@ checks.push({
   },
 });
 
+checks.push({
+  n: 8,
+  name: "everything-mcp pod killed: woo keeps working, dashboard shows it Unreachable",
+  async run() {
+    type Srv = { slug: string; status: string; reason: string | null };
+    const everything = async () => ((await A("/servers")).body as Srv[]).find((s) => s.slug === "everything")!;
+    const kubectl = (args: string) => execSync(`kubectl ${args}`, { stdio: "pipe" }).toString().trim();
+    // Scale to 0 rather than delete the pod: a Deployment would recreate a deleted pod within
+    // seconds, possibly before the 15 s health check notices it was gone.
+    kubectl("scale deploy/everything-mcp -n mcp --replicas=0");
+    try {
+      kubectl("wait --for=delete pod -l app.kubernetes.io/name=everything-mcp -n mcp --timeout=60s");
+      let ev = await everything();
+      for (let i = 0; i < 30 && ev.status !== "unreachable"; i++) {
+        await sleep(1000);
+        ev = await everything();
+      }
+      const b = await clientB();
+      const woo = await b.call("woo__list_products", { per_page: 1 });
+      const dead = await b.call("everything__echo", { message: "hi" });
+      return {
+        pass: ev.status === "unreachable" && !woo.isError && Boolean(dead.isError),
+        evidence: [`everything-mcp scaled to 0; dashboard /api/servers -> ${ev.status} (${ev.reason})`, `woo__list_products -> ${woo.isError ? "ERROR" : "ok"}`, `everything__echo -> ${short(text(dead), 150)}`],
+      };
+    } finally {
+      kubectl("scale deploy/everything-mcp -n mcp --replicas=1");
+      let ev = await everything();
+      for (let i = 0; i < 60 && ev.status !== "connected"; i++) {
+        await sleep(2000);
+        ev = await everything();
+      }
+      console.log(`    (everything-mcp scaled back to 1 -> ${ev.status})`);
+    }
+  },
+});
+
 // ---------- runner ----------
 const only = (process.env.ONLY ?? "").split(",").map((s) => Number(s.trim())).filter(Boolean);
 const selected = checks.filter((c) => !only.length || only.includes(c.n));
