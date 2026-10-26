@@ -115,6 +115,24 @@ async function orderId(): Promise<number> {
 interface Check { n: number; name: string; run: () => Promise<{ pass: boolean; evidence: string[] }> }
 const checks: Check[] = [];
 
+checks.push({
+  n: 1,
+  name: "chat as A creates a product; it appears on the storefront",
+  async run() {
+    const c = await chat(A, `Create a product named "${state.productName}" priced at 799 rupees.`);
+    const created = c.toolCalls?.find((t) => t.name === "woo__create_product" && t.ok);
+    const id: number | undefined = created ? JSON.parse(created.result).created?.id : undefined;
+    // ?post_type=product&p=<id> redirects to the product's permalink on the public storefront.
+    const page = id ? await fetch(`${SHOP}/?post_type=product&p=${id}`) : undefined;
+    const onStorefront = Boolean(page?.ok && (await page.text()).includes(state.productName));
+    if (id) state.productId = id;
+    return {
+      pass: Boolean(id) && onStorefront,
+      evidence: [`tool calls: ${describeCalls(c)}`, `reply: ${short(c.reply)}`, `storefront ${page?.url ?? "-"} -> HTTP ${page?.status ?? "-"}, shows "${state.productName}": ${onStorefront}`],
+    };
+  },
+});
+
 // ---------- runner ----------
 const only = (process.env.ONLY ?? "").split(",").map((s) => Number(s.trim())).filter(Boolean);
 const selected = checks.filter((c) => !only.length || only.includes(c.n));
