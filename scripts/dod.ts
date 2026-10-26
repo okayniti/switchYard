@@ -214,10 +214,21 @@ checks.push({
       rejected = err instanceof StreamableHTTPError && err.code === 401;
       after = `rejected: HTTP ${(err as StreamableHTTPError).code} ${short((err as Error).message, 140)}`;
     }
+    await b.client.close().catch(() => {}); // stop the revoked client's stream retries
     state.clientB = undefined; // later checks need a fresh key
+    // The rejected attempt is audited too: outcome 'denied', under B.
+    type Row = { ts: string; user_email: string; tool: string; outcome: string; error: string | null };
+    const denied = ((await A("/audit")).body as Row[]).find(
+      (r) => new Date(r.ts).getTime() >= runStarted - 5_000 && r.user_email === MEMBER.email && r.outcome === "denied" && r.tool === "woo__list_products",
+    );
     return {
-      pass: !before.isError && rev.status === 200 && rejected,
-      evidence: [`before revoke: woo__list_products ${before.isError ? "ERROR" : "ok"}`, `admin DELETE /api/keys/${key?.id} -> ${rev.status}`, after],
+      pass: !before.isError && rev.status === 200 && rejected && denied?.error === "API key revoked",
+      evidence: [
+        `before revoke: woo__list_products ${before.isError ? "ERROR" : "ok"}`,
+        `admin DELETE /api/keys/${key?.id} -> ${rev.status}`,
+        after,
+        `audit: ${denied ? `${denied.ts} ${denied.user_email} ${denied.tool} ${denied.outcome} (${denied.error})` : "no 'denied' row for B"}`,
+      ],
     };
   },
 });
