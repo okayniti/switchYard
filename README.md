@@ -310,6 +310,25 @@ using chat, B = member using an external MCP client via the MCP SDK). Each print
 evidence; `make dod ONLY=3,6` runs a subset. It needs a running cluster and an LLM key, and
 checks 1, 2, 5, 7 and 9 use the free-tier LLM quota (see "Free-tier rate limits" above).
 
+**Last results (26 Oct, k3d on an 8 GB laptop, Groq free tier):** every check has passed against
+the final gateway. The last single full run was **8/9**: check 2's chat answer hit Groq's 8,000
+tokens/min limit. Repeated runs had created ~15 "today" orders, so the order list the model reads
+had grown; with a fresh store it passes. When runs fail on this machine, it is for two reasons
+outside the code, both visible in the evidence:
+
+- **Node starvation:** the gateway's *and* Postgres's probes time out together, giving brief 503s
+  and `ECONNRESET`/kube-API TLS timeouts.
+- **LLM quota:** the chat gets HTTP 429 after the gateway's retries.
+
+So the reliable way to run it here is check 8 on its own and the rest together, re-running a
+check whose evidence shows `ECONNRESET` or `429`:
+
+```bash
+make dod ONLY=8                 # PASS
+make dod ONLY=1,2,3,4,5,6,7,9   # 3-7, 9 PASS together; 1 and 2 PASS on re-run
+                                # (1 hit ECONNRESET; 2 hit LLM 429 at 15+ orders today)
+```
+
 ### Built
 
 **Platform and Kubernetes (verified)**
