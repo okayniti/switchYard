@@ -1,5 +1,7 @@
 // The gateway's server side: one MCP endpoint, /mcp, for every team member.
 //
+// - Origin, when present, must be in MCP_ALLOWED_ORIGINS (DNS-rebinding defence, required by
+//   the spec). CLI clients send no Origin and are allowed.
 // - Authorization: Bearer <api key> is checked against the DB on EVERY request (not just at
 //   initialize), so a revoked key fails on its very next request even inside an open session.
 // - Each MCP session is bound to the key that opened it; a request presenting a different key
@@ -16,9 +18,11 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { CallToolRequestSchema, ListToolsRequestSchema, isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import type { Request, Response, Router } from "express";
 import express from "express";
+import { config } from "./config.js";
 import { sha256 } from "./crypto.js";
 import { pool } from "./db.js";
 import { executeToolCall, type CallContext } from "./execute.js";
+import { originAllowed, parseOrigins } from "./origin.js";
 import { upstreams } from "./upstreams.js";
 
 interface Session {
@@ -29,6 +33,7 @@ interface Session {
 }
 
 const sessions = new Map<string, Session>();
+const allowedOrigins = parseOrigins(config.mcpAllowedOrigins);
 const SESSION_IDLE_MS = 60 * 60 * 1000;
 
 const rpcError = (res: Response, status: number, message: string) =>
@@ -81,6 +86,10 @@ setInterval(() => {
 }, 60_000).unref();
 
 async function handle(req: Request, res: Response): Promise<void> {
+  if (!originAllowed(req.headers.origin, allowedOrigins)) {
+    rpcError(res, 403, `Origin ${req.headers.origin} is not allowed to call /mcp.`);
+    return;
+  }
   const ctx = await authenticateKey(req.headers.authorization);
   if (!ctx) {
     res.set("WWW-Authenticate", 'Bearer realm="switchyard"');

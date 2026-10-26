@@ -54,6 +54,7 @@ to the same gateway Service port 8080.
 | `SHIPPING_MCP_TOKEN` | yes | **yes** | same value as shipping-mcp `SHIPPING_TOKEN` | Stored encrypted as the `shipping` bearer credential. |
 | `EVERYTHING_MCP_URL` | no | | `http://everything-mcp.mcp.svc.cluster.local:3001/mcp` | Seed for server `everything`. |
 | `PUBLIC_MCP_URL` | no | | `http://mcp.localtest.me/mcp` | Shown in the dashboard's `claude mcp add` command. |
+| `MCP_ALLOWED_ORIGINS` | no | | `http://yard.localtest.me` | Comma-separated origins allowed to call `/mcp` from a browser (set to the dashboard URL, `http(s)://<hosts.dashboard>`). Requests without an `Origin` header (CLI clients) are always allowed. |
 | `LLM_BASE_URL` | no | | `https://api.groq.com/openai/v1` | Any OpenAI-compatible Chat Completions endpoint. |
 | `LLM_MODEL` | no | | `llama-3.3-70b-versatile` | |
 | `LLM_API_KEY` | yes (for chat) | **yes** | | Chat returns a clear error if unset. |
