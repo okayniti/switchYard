@@ -153,8 +153,26 @@ visible calls, least-privilege tools, human confirmation for writes), but not fu
 
 ## 4. What one team member can do to another
 
-*(gateway: server-side authorization: members can't list or revoke others' keys, change
-roles, read others' audit entries, or see others' chat; admins can issue and revoke keys.)*
+**What a member *can't* do to another (enforced server-side in
+[api.ts](../apps/gateway/src/api.ts) and [mcp.ts](../apps/gateway/src/mcp.ts)):**
+
+| Action | Enforcement |
+|--------|-------------|
+| list, see or revoke another member's keys | `/api/keys` queries are scoped to `user_id = <session user>`; revoking someone else's key id returns 404, which doesn't even confirm it exists. `/api/users` (the only cross-user key listing) is admin-only. |
+| use another member's key | keys are shown only once, to their creator, and stored as SHA-256; nothing in the API can return one |
+| ride another member's MCP session | each session is bound to the key that opened it; a different key on that `Mcp-Session-Id` gets 403 |
+| read another member's audit rows | `/api/audit` returns all rows for admins, only the caller's rows for members |
+| read another member's chat | chat history is not stored on the server at all; it lives in that browser tab |
+| change roles, add members, add/edit/disable servers | admin-only routes (`requireAdmin`), 403 for members; there is no role-change endpoint at all |
+| see upstream credentials | write-only API (see §1) |
+
+Members *can* see the list of servers, their URLs, status and tools: that is what lets them use
+the gateway, and it reveals no credential.
+
+**Admins vs members.** An admin can issue a key *for* a member (user story admin #4). The admin
+sees that key once, so calls made with it are attributed to the member but could have been made
+by the admin. That is inherent in admin-issued keys; members who want sole control generate their
+own. Admin actions (adding servers, issuing keys) are not yet written to the audit log.
 
 **What a member *can* do to others (shared state):**
 
@@ -162,8 +180,11 @@ roles, read others' audit entries, or see others' chat; admins can issue and rev
   status). Mitigation: role-based tool permissions, plus the per-user audit log that shows
   who did it.
 - **Exhaust shared capacity:** upstream API rate limits, the LLM quota, or cluster CPU via
-  expensive calls. Mitigation: *(gateway: per-key rate limits)*. Every workload has Kubernetes
-  CPU/memory **limits**, so one hot pod can't starve the rest of the node.
+  expensive calls. The gateway has **no per-key rate limits yet**, so one member can use up the
+  shared LLM quota or hammer an upstream; the audit log shows who. Every tool call has a 15 s
+  timeout and every chat request at most 8 iterations, which bounds a single request, not a
+  flood. Every workload has Kubernetes CPU/memory **limits**, so one hot pod can't starve the
+  rest of the node.
 
 **Infrastructure guarantees:**
 - Members have no Kubernetes access and no access to Secrets.
