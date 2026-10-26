@@ -28,7 +28,7 @@ up: cluster images import install ## Create cluster, build + import images, helm
 cluster: ## Create the k3d cluster with host ports 80/443 (idempotent)
 	CLUSTER=$(CLUSTER) bash scripts/k3d-up.sh
 
-images: ## Build all local images (apps without a Dockerfile yet are skipped)
+images: ## Build all local images, ONE AT A TIME (8 GB laptop), then prune build cache
 	docker build -t switchyard-wordpress:$(TAG) images/wordpress
 	docker build -t switchyard-everything-mcp:$(TAG) images/everything-mcp
 	@for a in $(APPS); do \
@@ -37,9 +37,13 @@ images: ## Build all local images (apps without a Dockerfile yet are skipped)
 	    docker build -f apps/$$a/Dockerfile -t switchyard-$$a:$(TAG) . ; \
 	  else echo "skip $$a: apps/$$a/Dockerfile not found"; fi; \
 	done
+	docker builder prune -f >/dev/null
+	@echo "build cache pruned"
 
-import: ## Import every built switchyard image into k3d
-	k3d image import -c $(CLUSTER) $$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -E '^switchyard-.*:$(TAG)$$')
+import: ## Import switchyard images into k3d one at a time (lower peak memory)
+	@for img in $$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -E '^switchyard-.*:$(TAG)$$'); do \
+	  echo "importing $$img"; k3d image import -c $(CLUSTER) $$img >/dev/null; \
+	done
 
 # LLM key: `make up LLM_API_KEY=...` stores it in the llm Secret; it is never echoed or committed.
 install: ## helm upgrade --install with local values
