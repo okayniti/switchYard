@@ -62,8 +62,14 @@ make llm-key LLM_API_KEY=gsk_...           # ONLY set/replace the LLM key + rest
    charts/switchyard/values-local.yaml --wait --wait-for-jobs`. An app whose image doesn't
    exist yet is installed with `<app>.enabled=false`.
 
+(On Windows, run these from Git Bash.)
+
 The LLM key is passed as `--set-string gateway.llm.apiKey=…` into the `llm` Secret. It's never
 echoed, never written to a values file, and kept across later `make up` runs that omit it.
+`make llm-key` changes only that Secret and restarts the gateway. The provider and model are
+plain values (`gateway.llm.baseUrl`, `gateway.llm.model`, default Groq +
+`openai/gpt-oss-120b`). Change them with `helm upgrade … --set gateway.llm.model=<model>` or in
+`values.yaml`; no image rebuild is needed.
 
 **Demo reset:** `bash scripts/demo-reset.sh [LLM_API_KEY=…]` starts the cluster if stopped,
 re-runs `make up`, waits until every pod is Ready, smoke-tests the URLs and **prints every URL
