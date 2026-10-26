@@ -87,7 +87,8 @@ async function storefrontOrder(productId: number): Promise<number> {
 // ---------- shared, lazily created state ----------
 const A = await login(ADMIN.email, ADMIN.password);
 const B = await login(MEMBER.email, MEMBER.password);
-const stamp = Date.now().toString(36);
+const runStarted = Date.now();
+const stamp = runStarted.toString(36);
 const state: { productId?: number; productName: string; orderId?: number; keyB?: string; clientB?: ExternalClient } = {
   productId: process.env.PRODUCT_ID ? Number(process.env.PRODUCT_ID) : undefined,
   productName: `DoD Lamp ${stamp}`,
@@ -283,6 +284,35 @@ checks.push({
       }
       console.log(`    (everything-mcp scaled back to 1 -> ${ev.status})`);
     }
+  },
+});
+
+checks.push({
+  n: 9,
+  name: "every call above is in the audit log, attributed to the right user",
+  async run() {
+    type Row = { ts: string; user_email: string; source: string; tool: string; duration_ms: number; outcome: string };
+    const since = runStarted - 5_000; // small allowance for clock skew with the gateway
+    let rows = ((await A("/audit")).body as Row[]).filter((r) => new Date(r.ts).getTime() >= since);
+    const of = (email: string, source: string) => rows.filter((r) => r.user_email === email && r.source === source);
+    if (!of(ADMIN.email, "chat").length || !of(MEMBER.email, "mcp").length) {
+      // Run on its own: make one chat call as A and one MCP call as B first.
+      await chat(A, "How many products does the store have? Use list_products with per_page 5.");
+      await (await clientB()).call("woo__list_products", { per_page: 1 });
+      rows = ((await A("/audit")).body as Row[]).filter((r) => new Date(r.ts).getTime() >= since);
+    }
+    const aChat = of(ADMIN.email, "chat");
+    const bMcp = of(MEMBER.email, "mcp");
+    const memberView = (await B("/audit")).body as Row[];
+    const complete = rows.every((r) => r.user_email && r.tool && Number.isFinite(r.duration_ms) && ["ok", "error"].includes(r.outcome));
+    return {
+      pass: aChat.length > 0 && bMcp.length > 0 && complete && memberView.every((r) => r.user_email === MEMBER.email),
+      evidence: [
+        `this run: ${rows.length} rows; A (${ADMIN.email}) via chat: ${aChat.length}; B (${MEMBER.email}) via mcp: ${bMcp.length}`,
+        `every row has user, tool, duration and outcome: ${complete}; B's own audit view contains only B: ${memberView.every((r) => r.user_email === MEMBER.email)}`,
+        ...rows.slice(0, 6).map((r) => `${r.ts} ${r.user_email} ${r.source} ${r.tool} ${r.duration_ms}ms ${r.outcome}`),
+      ],
+    };
   },
 });
 
