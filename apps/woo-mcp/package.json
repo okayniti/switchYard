@@ -5,6 +5,7 @@
   "description": "MCP server (Streamable HTTP) exposing a WooCommerce store's products and orders",
   "type": "module",
   "main": "dist/index.js",
+  "files": ["dist"],
   "engines": {
     "node": ">=24"
   },

@@ -21,10 +21,10 @@ importers:
         version: 4.6.7
     devDependencies:
       '@types/express':
-        specifier: ^5.0.6
+        specifier: 5.0.6
         version: 5.0.6
       '@types/node':
-        specifier: ^24.19.2
+        specifier: 24.19.2
         version: 24.19.2
       typescript:
         specifier: 5.9.3
