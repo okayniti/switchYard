@@ -133,6 +133,20 @@ checks.push({
   },
 });
 
+checks.push({
+  n: 2,
+  name: "storefront order, then chat as A: what orders came in today?",
+  async run() {
+    const id = await orderId();
+    const c = await chat(A, "What orders came in today?");
+    const listed = c.toolCalls?.find((t) => t.name === "woo__list_orders" && t.ok);
+    return {
+      pass: Boolean(listed?.result.includes(`"id": ${id}`)) && c.reply.includes(String(id)),
+      evidence: [`storefront checkout (Store API, Cash on Delivery) -> order #${id}`, `tool calls: ${describeCalls(c)}`, `reply: ${short(c.reply, 300)}`],
+    };
+  },
+});
+
 // ---------- runner ----------
 const only = (process.env.ONLY ?? "").split(",").map((s) => Number(s.trim())).filter(Boolean);
 const selected = checks.filter((c) => !only.length || only.includes(c.n));
