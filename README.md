@@ -17,6 +17,24 @@ Docs: [design](docs/DESIGN.md) · [threat model](docs/THREAT_MODEL.md) ·
 [env contract](docs/ENV.md) · [requirements matrix](docs/REQUIREMENTS_MATRIX.md) ·
 [assignment](docs/ASSIGNMENT.md)
 
+## What makes this stand out
+
+Only things that are built and were verified against the running cluster. "(#n)" is the brief's
+"Other ways to stand out" item.
+
+- **Automated Definition of Done:** `make dod` runs all 9 DoD checks against the live cluster as two users, one check at a time with `ONLY=…`, restoring state after destructive checks. [scripts/dod.ts](scripts/dod.ts)
+- **SSRF guard (#6):** server URLs resolving to loopback, link-local/metadata or unspecified addresses (incl. decimal/hex IPv4 and IPv4-mapped IPv6) are refused on add, on edit, and on every connect. [apps/gateway/src/ssrf.ts](apps/gateway/src/ssrf.ts)
+- **Origin validation on `/mcp` (#6):** a foreign `Origin` gets 403 before auth; CLI clients without one are unaffected. [apps/gateway/src/origin.ts](apps/gateway/src/origin.ts)
+- **Credentials at rest (#6):** upstream credentials AES-256-GCM encrypted and write-only in the API; API keys stored as SHA-256 and checked on every request, so revocation is immediate. [crypto.ts](apps/gateway/src/crypto.ts), [mcp.ts](apps/gateway/src/mcp.ts)
+- **Hardened pods (#6):** every workload non-root, all capabilities dropped, read-only root filesystem; a NetworkPolicy lets only the gateway reach woo-mcp. [_apps.tpl](charts/switchyard/templates/_apps.tpl), [networkpolicy-woo-mcp.yaml](charts/switchyard/templates/networkpolicy-woo-mcp.yaml)
+- **Live tool updates:** the gateway sends `tools/list_changed`, so a disabled or dead server's tools vanish from connected clients without a reconnect. [apps/gateway/src/mcp.ts](apps/gateway/src/mcp.ts)
+- **Failure isolation and status reasons (#8):** cached tool listing, 15 s per-call timeout, and a dashboard status reason (e.g. "connection refused", "timed out"); reconnects by itself after an upstream restarts. [apps/gateway/src/upstreams.ts](apps/gateway/src/upstreams.ts)
+- **Complete audit:** calls made with a revoked key are recorded as `denied` under the key's owner. [apps/gateway/src/mcp.ts](apps/gateway/src/mcp.ts), [002_audit_denied.sql](apps/gateway/migrations/002_audit_denied.sql)
+- **Upgrades and rollback (#9):** a real failed upgrade rolled back with `helm rollback` in 13 s, data and secrets intact; local vs prod differ only by values files. [Upgrades and rollback](#upgrades-and-rollback), [values-prod.yaml](charts/switchyard/values-prod.yaml)
+- **Laptop-scale:** the whole stack is sized to run in a ~4 GB Docker VM on an 8 GB laptop. [values-local.yaml](charts/switchyard/values-local.yaml), [sizing](#resource-sizing-an-8-gb-laptop-vs-production)
+- **Resilient chat:** retries LLM HTTP 429s using the provider's suggested delay; the model is a Helm value (`gateway.llm.model`). [apps/gateway/src/chat.ts](apps/gateway/src/chat.ts)
+- **Honest threat model:** states what is *not* built (tool permissions, rate limits, description pinning) and why it matters. [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)
+
 ## Prerequisites
 
 | Tool | Version used | Notes |
