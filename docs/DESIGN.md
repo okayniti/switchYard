@@ -284,19 +284,37 @@ has a 120 s timeout that names any slow call in the log.
 
 Every container, including init containers and the Job, has CPU/memory **requests** (what
 the scheduler reserves) and **limits** (the ceiling; exceeding the memory limit gets the
-container OOM-killed rather than starving its neighbours). Local sizes are small so the
-whole stack fits in about 4 GB of Docker memory. `values-prod.yaml` raises them.
+container OOM-killed rather than starving its neighbours).
 
-| Workload | Requests | Limits |
-|----------|----------|--------|
-| MariaDB | 100m / 256Mi | 1 / 512Mi |
-| WordPress | 100m / 192Mi | 1 / 512Mi |
-| setup Job | 100m / 128Mi | 1 / 512Mi |
-| Postgres | 50m / 128Mi | 500m / 384Mi |
-| gateway | 100m / 192Mi | 1 / 512Mi |
-| woo-mcp | 50m / 96Mi | 500m / 256Mi |
-| shipping-mcp | 25m / 64Mi | 250m / 192Mi |
-| everything-mcp | 25m / 96Mi | 500m / 256Mi |
+The local values are sized for the development machine, a laptop with **8 GB RAM** where the
+Docker/WSL VM gets about 4–5 GB. A few in-workload settings make the small limits real
+rather than optimistic:
+
+- the **databases** are tuned to their limits (MariaDB's InnoDB buffer pool 64M with
+  `performance_schema` off; Postgres `shared_buffers=32MB`, `max_connections=20`), passed
+  through `mariadb.args` and `postgres.args`;
+- **Apache's prefork pool** is capped through a ConfigMap (4 workers locally), because each
+  worker is a PHP process and the default of 150 would overrun any sensible limit;
+- **k3s's metrics-server** is disabled (nothing uses it).
+
+`values-prod.yaml` keeps the chart's larger defaults.
+
+| Workload | Local request → limit (memory) | Prod request → limit (memory) |
+|----------|--------------------------------|-------------------------------|
+| MariaDB | 128Mi → 256Mi | 384Mi → 768Mi |
+| WordPress | 128Mi → 256Mi (4 Apache workers) | 256Mi → 768Mi (10 workers) |
+| store setup Job | 128Mi → **384Mi** | 128Mi → 512Mi |
+| Postgres | 64Mi → 256Mi | 128Mi → 384Mi |
+| gateway | 64Mi → 256Mi | 256Mi → 768Mi |
+| woo-mcp, shipping-mcp, everything-mcp | 64Mi → 256Mi | 64–96Mi → 192–256Mi |
+
+**The setup Job is the one exception to "smallest limit".** At 256Mi it was OOM-killed (exit
+137) while wp-cli flushed rewrite rules: wp-cli loads WordPress plus all of WooCommerce in
+one PHP process. It runs briefly and on its own after install/upgrade, so 384Mi costs nothing
+at steady state.
+
+**Measured:** with all 7 long-running pods up, the k3d node uses about 1.6 GiB. Image builds
+run one at a time, and the build cache is pruned afterwards.
 
 ### Container hardening (every workload)
 
