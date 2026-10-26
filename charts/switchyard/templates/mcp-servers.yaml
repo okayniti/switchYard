@@ -1,0 +1,16 @@
+{{- /* Upstream MCP servers. ClusterIP only — never Ingress/NodePort/LoadBalancer. */}}
+{{- $mcp := .Values.global.namespaces.mcp }}
+{{- if .Values.wooMcp.enabled }}
+---
+{{ include "switchyard.app" (dict "root" $ "name" "woo-mcp" "ns" $mcp "app" .Values.wooMcp) }}
+{{- end }}
+{{- if .Values.shippingMcp.enabled }}
+---
+{{ include "switchyard.app" (dict "root" $ "name" "shipping-mcp" "ns" $mcp "app" .Values.shippingMcp) }}
+{{- end }}
+{{- if .Values.everythingMcp.enabled }}
+---
+{{ include "switchyard.app" (dict "root" $ "name" "everything-mcp" "ns" $mcp "app" .Values.everythingMcp) }}
+{{- end }}
+{{- /* shipping-mcp's bearer token: same value for the server (mcp) and the gateway (platform). */}}
+{{ include "switchyard.sharedSecret" (dict "root" $ "name" "shipping-mcp-token" "namespaces" (list $mcp .Values.global.namespaces.platform) "keys" (dict "token" 48)) }}

@@ -66,3 +66,117 @@ setup:
   resources:
     requests: { cpu: 100m, memory: 128Mi }
     limits: { cpu: "1", memory: 512Mi }
+
+# ---------------- mcp namespace (internal only: ClusterIP, never Ingress) ----------------
+# Env names follow docs/ENV.md (the apps <-> chart contract). Env lists are rendered with
+# tpl, so they may reference .Values. Secrets only via secretKeyRef.
+
+wooMcp:
+  enabled: true
+  image: { repository: switchyard-woo-mcp, tag: dev }
+  port: 8080
+  healthPath: /healthz
+  readyPath: /healthz
+  resources:
+    requests: { cpu: 50m, memory: 96Mi }
+    limits: { cpu: 500m, memory: 256Mi }
+  env:
+    - name: WC_URL           # where requests are sent (in-cluster Service)
+      value: "http://wordpress.{{ .Values.global.namespaces.store }}.svc.cluster.local"
+    - name: WC_HOME          # public home URL: WooCommerce verifies OAuth1 signatures against it
+      value: '{{ include "store.url" . }}'
+    - name: STORE_TZ
+      value: Asia/Kolkata
+    - name: WC_KEY
+      valueFrom: { secretKeyRef: { name: "{{ .Values.wooApiKey.secretName }}", key: consumer-key } }
+    - name: WC_SECRET
+      valueFrom: { secretKeyRef: { name: "{{ .Values.wooApiKey.secretName }}", key: consumer-secret } }
+
+shippingMcp:
+  enabled: true
+  image: { repository: switchyard-shipping-mcp, tag: dev }
+  port: 8080
+  healthPath: /healthz
+  readyPath: /healthz
+  resources:
+    requests: { cpu: 25m, memory: 64Mi }
+    limits: { cpu: 250m, memory: 192Mi }
+  env:
+    - name: SHIPPING_TOKEN    # static bearer token; the gateway holds the same value
+      valueFrom: { secretKeyRef: { name: shipping-mcp-token, key: token } }
+
+everythingMcp:
+  enabled: true
+  image: { repository: switchyard-everything-mcp, tag: dev }
+  port: 3001
+  healthPath: ""             # no /healthz: tcpSocket probes
+  readyPath: ""
+  resources:
+    requests: { cpu: 25m, memory: 96Mi }
+    limits: { cpu: 500m, memory: 256Mi }
+  env: []
+
+# ---------------- platform namespace ----------------
+
+postgres:
+  enabled: true
+  image: postgres:18.6-alpine
+  database: gateway
+  username: gateway
+  storage: 1Gi
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 384Mi }
+
+# Gateway = REST API + /mcp endpoint + chat agent, and it serves the dashboard UI.
+gateway:
+  enabled: true
+  image: { repository: switchyard-gateway, tag: dev }
+  port: 8080
+  healthPath: /healthz
+  readyPath: /healthz
+  adminEmail: admin@switchyard.local
+  memberEmail: member@switchyard.local
+  llm:
+    baseUrl: https://api.groq.com/openai/v1   # any OpenAI-compatible endpoint
+    model: llama-3.3-70b-versatile
+    # NEVER commit a key here. Pass at install: make up LLM_API_KEY=... (kept in the llm Secret).
+    apiKey: ""
+  resources:
+    requests: { cpu: 100m, memory: 192Mi }
+    limits: { cpu: "1", memory: 512Mi }
+  env:
+    - name: PGPASSWORD       # defined first so DATABASE_URL can expand $(PGPASSWORD)
+      valueFrom: { secretKeyRef: { name: postgres, key: password } }
+    - name: DATABASE_URL
+      value: "postgres://{{ .Values.postgres.username }}:$(PGPASSWORD)@postgres.{{ .Values.global.namespaces.platform }}.svc.cluster.local:5432/{{ .Values.postgres.database }}"
+    - name: SESSION_SECRET
+      valueFrom: { secretKeyRef: { name: gateway, key: session-secret } }
+    - name: GATEWAY_ENC_KEY  # 32 random bytes, base64: AES-256-GCM key for upstream credentials
+      valueFrom: { secretKeyRef: { name: gateway, key: enc-key } }
+    - name: ADMIN_EMAIL
+      value: "{{ .Values.gateway.adminEmail }}"
+    - name: ADMIN_PASSWORD
+      valueFrom: { secretKeyRef: { name: gateway, key: admin-password } }
+    - name: MEMBER_EMAIL
+      value: "{{ .Values.gateway.memberEmail }}"
+    - name: MEMBER_PASSWORD
+      valueFrom: { secretKeyRef: { name: gateway, key: member-password } }
+    - name: WOO_MCP_URL
+      value: "http://woo-mcp.{{ .Values.global.namespaces.mcp }}.svc.cluster.local:{{ .Values.wooMcp.port }}/mcp"
+    - name: SHIPPING_MCP_URL
+      value: "http://shipping-mcp.{{ .Values.global.namespaces.mcp }}.svc.cluster.local:{{ .Values.shippingMcp.port }}/mcp"
+    - name: SHIPPING_MCP_TOKEN
+      valueFrom: { secretKeyRef: { name: shipping-mcp-token, key: token } }
+    - name: EVERYTHING_MCP_URL
+      value: "http://everything-mcp.{{ .Values.global.namespaces.mcp }}.svc.cluster.local:{{ .Values.everythingMcp.port }}/mcp"
+    - name: PUBLIC_MCP_URL
+      value: '{{ ternary "https" "http" .Values.global.tls.enabled }}://{{ .Values.global.hosts.mcp }}/mcp'
+    - name: LLM_BASE_URL
+      value: "{{ .Values.gateway.llm.baseUrl }}"
+    - name: LLM_MODEL
+      value: "{{ .Values.gateway.llm.model }}"
+    - name: LLM_API_KEY
+      valueFrom: { secretKeyRef: { name: llm, key: api-key, optional: true } }
+    - name: COOKIE_SECURE
+      value: '{{ .Values.global.tls.enabled }}'

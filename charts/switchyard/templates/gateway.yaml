@@ -1,0 +1,60 @@
+{{- if .Values.gateway.enabled }}
+{{- $ns := .Values.global.namespaces.platform }}
+{{- $c := dict "root" . "component" "gateway" }}
+# Gateway secrets, generated once and kept stable by lookup.
+{{ include "switchyard.sharedSecret" (dict "root" $ "name" "gateway" "namespaces" (list $ns) "keys" (dict "enc-key" "bytes32" "session-secret" 48 "admin-password" 20 "member-password" 20)) }}
+---
+{{- /* LLM key: never in git. Set at install (--set-string gateway.llm.apiKey=...); otherwise keep what's in the cluster. */}}
+{{- $existingLlm := lookup "v1" "Secret" $ns "llm" }}
+{{- $llmKey := .Values.gateway.llm.apiKey }}
+{{- if and (not $llmKey) $existingLlm (hasKey $existingLlm.data "api-key") }}
+{{- $llmKey = index $existingLlm.data "api-key" | b64dec }}
+{{- end }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: llm
+  namespace: {{ $ns }}
+  labels:
+    {{- include "switchyard.labels" $c | nindent 4 }}
+type: Opaque
+data:
+  api-key: {{ $llmKey | b64enc | quote }}
+---
+{{ include "switchyard.app" (dict "root" $ "name" "gateway" "ns" $ns "app" .Values.gateway) }}
+---
+# Public entry points: the dashboard (+ its /api) and the MCP endpoint for external clients.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gateway
+  namespace: {{ $ns }}
+  labels:
+    {{- include "switchyard.labels" $c | nindent 4 }}
+  {{- if and .Values.global.tls.enabled .Values.global.tls.clusterIssuer }}
+  annotations:
+    cert-manager.io/cluster-issuer: {{ .Values.global.tls.clusterIssuer }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.global.ingressClassName }}
+  {{- if .Values.global.tls.enabled }}
+  tls:
+    - hosts: [{{ .Values.global.hosts.dashboard | quote }}, {{ .Values.global.hosts.mcp | quote }}]
+      secretName: gateway-tls
+  {{- end }}
+  rules:
+    - host: {{ .Values.global.hosts.dashboard | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: gateway, port: { name: http } }
+    - host: {{ .Values.global.hosts.mcp | quote }}
+      http:
+        paths:
+          - path: /mcp
+            pathType: Prefix
+            backend:
+              service: { name: gateway, port: { name: http } }
+{{- end }}
