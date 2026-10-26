@@ -135,7 +135,12 @@ imports them one at a time, and the build cache is pruned afterwards (`docker bu
 | `kubectl` hangs / `EOF` / TLS handshake timeout after Docker restarted (Windows) | the k3d load balancer kept the server's old IP: `docker restart k3d-switchyard-serverlb` (`demo-reset.sh` does this automatically) |
 | kubeconfig points at `host.docker.internal` and times out (Windows) | clusters created by `scripts/k3d-up.sh` bind the API to `127.0.0.1:6550`; for an older cluster run `kubectl config set-cluster k3d-switchyard --server=https://127.0.0.1:<port>` |
 | `http://shop.localtest.me` doesn't resolve | use the hosts-file fallback above |
-| pods `OOMKilled` / `Pending` | raise Docker Desktop's memory limit (WSL2: `.wslconfig` `memory=8GB`) |
+| Browser shows **`ERR_CONNECTION_RESET`** (or `curl` gets `000`/connection reset) on `*.localtest.me` | the k3d load balancer is forwarding port 80 to a stale node IP after Docker restarted (its log shows `connect() failed (111)`): `docker restart k3d-switchyard-serverlb`, or `bash scripts/demo-reset.sh`. If only one host fails, its pod is restarting: `make status` |
+| `kubectl` / `docker` hang, TLS handshake timeouts, k3s at very high CPU | the Docker VM is out of memory (8 GB laptop): stop unrelated containers (`docker ps`, `docker stop …`). The local values are sized for a ~4 GB VM; see [sizing](#resource-sizing-an-8-gb-laptop-vs-production) |
+| pods `OOMKilled` / `Pending` | same: free memory or raise the WSL2 cap (`%UserProfile%\.wslconfig`: `[wsl2]` `memory=6GB`, then `wsl --shutdown` and restart Docker) |
+| setup Job `OOMKilled` (exit 137) | wp-cli needs more than 256Mi; `values-local.yaml` gives the Job 384Mi. Raise `setup.resources.limits.memory` if you add plugins |
+| chat says the model doesn't exist / was decommissioned | the provider retired the model (Groq retired `llama-3.3-70b-versatile`). Pick a current one and run `helm upgrade switchyard charts/switchyard -f charts/switchyard/values-local.yaml --set gateway.llm.model=<model> --wait` (or change `gateway.llm.model` in `values.yaml`); no image rebuild needed |
+| chat says no LLM key | `make llm-key LLM_API_KEY=…` |
 | setup Job failed | `kubectl logs -n store job/store-setup`; every step is idempotent, so `make install` re-runs it safely |
 
 ## Place an order (storefront)
