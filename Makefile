@@ -7,33 +7,58 @@ CHART     := charts/switchyard
 VALUES    ?= $(CHART)/values-local.yaml
 TAG       ?= dev
 
-# Images built locally and imported into k3d (values-local.yaml uses these tags).
-IMAGES := switchyard-wordpress:$(TAG)
+# Our apps (built from the repo root with apps/<name>/Dockerfile) and their values keys.
+APPS      := woo-mcp shipping-mcp gateway
+key_woo-mcp      := wooMcp
+key_shipping-mcp := shippingMcp
+key_gateway      := gateway
 
-.PHONY: help up down cluster images import install status admin-password
+# An app is built only once its Dockerfile exists; one whose image is missing is
+# installed with <key>.enabled=false, so `make up` works while apps are still being written.
+image_exists = $(shell docker image inspect switchyard-$(1):$(TAG) >/dev/null 2>&1 && echo yes)
+DISABLED_FLAGS = $(foreach a,$(APPS),$(if $(call image_exists,$(a)),,--set $(key_$(a)).enabled=false))
+
+.PHONY: help up down cluster images import install status admin-password gateway-admin-password
 
 help: ## List targets
-	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  %-16s %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk -F':.*?## ' '{printf "  %-24s %s\n", $$1, $$2}'
 
 up: cluster images import install ## Create cluster, build + import images, helm install local
 
-cluster: ## Create the k3d cluster (idempotent)
+cluster: ## Create the k3d cluster with host ports 80/443 (idempotent)
 	CLUSTER=$(CLUSTER) bash scripts/k3d-up.sh
 
-images: ## Build local images
+images: ## Build all local images (apps without a Dockerfile yet are skipped)
 	docker build -t switchyard-wordpress:$(TAG) images/wordpress
+	docker build -t switchyard-everything-mcp:$(TAG) images/everything-mcp
+	@for a in $(APPS); do \
+	  if [ -f apps/$$a/Dockerfile ]; then \
+	    echo "building switchyard-$$a:$(TAG)"; \
+	    docker build -f apps/$$a/Dockerfile -t switchyard-$$a:$(TAG) . ; \
+	  else echo "skip $$a: apps/$$a/Dockerfile not found"; fi; \
+	done
 
-import: ## Import local images into k3d
-	k3d image import -c $(CLUSTER) $(IMAGES)
+import: ## Import every built switchyard image into k3d
+	k3d image import -c $(CLUSTER) $$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -E '^switchyard-.*:$(TAG)$$')
 
+# LLM key: `make up LLM_API_KEY=...` stores it in the llm Secret; it is never echoed or committed.
 install: ## helm upgrade --install with local values
-	helm upgrade --install $(RELEASE) $(CHART) -f $(VALUES) --wait --timeout 15m
+	@echo "helm upgrade --install $(RELEASE) $(CHART) -f $(VALUES) $(DISABLED_FLAGS)$(if $(LLM_API_KEY), --set-string gateway.llm.apiKey=***)"
+	@helm upgrade --install $(RELEASE) $(CHART) -f $(VALUES) $(DISABLED_FLAGS) \
+	  $(if $(LLM_API_KEY),--set-string gateway.llm.apiKey=$(LLM_API_KEY)) \
+	  --wait --wait-for-jobs --timeout 15m
 
 admin-password: ## Print the WordPress admin login (user: admin)
 	@kubectl get secret wordpress-admin -n store -o jsonpath='{.data.admin-password}' | base64 -d; echo
 
+gateway-admin-password: ## Print the dashboard admin + member passwords
+	@echo -n "admin  (admin@switchyard.local):  "; kubectl get secret gateway -n platform -o jsonpath='{.data.admin-password}' | base64 -d; echo
+	@echo -n "member (member@switchyard.local): "; kubectl get secret gateway -n platform -o jsonpath='{.data.member-password}' | base64 -d; echo
+
 status: ## Show what is running
-	kubectl get ns,pods,pvc,svc,ingress,networkpolicy -A -l app.kubernetes.io/part-of=switchyard
+	kubectl get pods,pvc,svc,ingress,networkpolicy -n store
+	kubectl get pods,pvc,svc,ingress,networkpolicy -n mcp
+	kubectl get pods,pvc,svc,ingress,networkpolicy -n platform
 
 down: ## Delete the k3d cluster (destroys all PVC data)
 	k3d cluster delete $(CLUSTER)
