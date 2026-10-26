@@ -141,6 +141,9 @@ Three different kinds of secret, stored three different ways, because they are u
   The API stores the ciphertext and from then on only reports `hasCredential: true`; there is no
   endpoint that returns it. It is decrypted in memory only when building that upstream's client.
   The master key `GATEWAY_ENC_KEY` is a Kubernetes Secret (see Secrets above).
+- **Origin check on `/mcp`:** before anything else, a request carrying an `Origin` header that
+  isn't in `MCP_ALLOWED_ORIGINS` (default the dashboard origin) is refused with 403, as the MCP
+  Streamable HTTP spec requires against DNS rebinding. CLI clients send no `Origin` and pass.
 - **Roles:** `admin` manages servers and members and sees the whole audit log; `member` uses the
   tools, manages their own keys and sees their own audit rows. Every `/api` route checks the
   session and role on the server; the dashboard hiding a button is only convenience.
