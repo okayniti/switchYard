@@ -39,8 +39,25 @@ which human asked.
 - **The store has no outbound internet** (`WP_HTTP_BLOCK_EXTERNAL`), which limits what a
   misused write tool can make WordPress fetch.
 
-*(gateway)* Per-user audit of every call, role/tool permissions, rate limits, write-only
-credential API, AES-256-GCM at rest.
+**Gateway mitigations (implemented):**
+
+- **The credential is never in reach of a member.** Upstream credentials are AES-256-GCM
+  ciphertext in Postgres. The REST API is write-only for them (responses carry only
+  `hasCredential: true`), MCP responses never include them, and the browser never talks to an
+  upstream. A member's only handle on the credential is "call a tool through the gateway".
+- **Every use is attributed.** Every tool call, from an MCP client or from chat, goes through
+  `executeToolCall`, which writes one audit row with the user, key, source, server, tool, time,
+  duration, outcome and an argument preview. The upstream sees "the gateway"; the audit log says
+  which person.
+- **Access is revocable per person.** Revoking a member's key stops their next request, and the
+  shared credential never has to be rotated because one person left.
+- **Admins can cut a server off for everyone** (disable), without touching its credential.
+
+**Not implemented (known gap):** per-role or per-tool permissions and per-key rate limits. Today
+any member can call every tool of every enabled server, including writes (`woo__create_product`,
+`woo__update_order_status`). The audit log makes misuse visible after the fact; it doesn't
+prevent it. The fix is a policy check in `executeToolCall` (step 3 of the routing flow), which
+also filters `tools/list`.
 
 **Residual risk.** The upstream's own logs show only the gateway's identity, so the
 gateway's audit log is the source of truth for "who did what".
