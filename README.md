@@ -313,4 +313,26 @@ run against the local cluster during development. The end-to-end Definition of D
 
 ## How I used AI
 
-*(To be written by the author.)*
+> **TODO (Niti): rewrite this section in your own words before submitting.** The draft below
+> is a factual starting point.
+
+Claude Code wrote most of the code and configuration in this repo. I directed it from a plan,
+made the design decisions, reviewed what it produced, and tested the system myself.
+
+- **Plan first.** I wrote `PLAYBOOK.md` (architecture, phases, commit discipline) and
+  `CLAUDE.md` (rules Claude Code loads every session: commit after every step, never commit
+  secrets, never claim something works without running it, ask before anything costly or
+  destructive). `docs/ASSIGNMENT.md` is the brief, kept as the source of truth.
+- **Decisions were mine.** Examples: the MCP SDK version and Node 24; an admin can issue keys
+  for members (the brief overrides the playbook); key revocation must not depend on sessions;
+  the store talks to woo-mcp only through the WooCommerce REST API; and sizing everything to
+  fit an 8 GB laptop.
+- **Two parallel Claude Code sessions,** each owning separate paths. One built the apps
+  (`apps/`: woo-mcp, shipping-mcp, the gateway, the dashboard, the chat). The other built the
+  platform (Helm chart, Makefile, scripts, store image, infrastructure docs). They
+  coordinated through `docs/ENV.md`, the env-var contract between the apps and the chart.
+- **Verification.** Every step was run against the real cluster before it was committed, and
+  failures became their own `fix:` commits. That's why the history is granular, and why it
+  shows mistakes and their fixes, including a rollback after a bad upgrade.
+- **What I did by hand:** reviewed the diffs and the design and threat-model docs, ran the
+  storefront checkout and the dashboard and chat flows, and connected an external MCP client.
