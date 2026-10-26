@@ -2,7 +2,7 @@
 {{- $ns := .Values.global.namespaces.platform }}
 {{- $c := dict "root" . "component" "gateway" }}
 # Gateway secrets, generated once and kept stable by lookup.
-{{ include "switchyard.sharedSecret" (dict "root" $ "name" "gateway" "namespaces" (list $ns) "keys" (dict "enc-key" "bytes32" "session-secret" 48 "admin-password" 20 "member-password" 20)) }}
+{{ include "switchyard.sharedSecret" (dict "root" $ "name" "gateway" "namespaces" (list $ns) "keys" (dict "enc-key" "bytes32" "admin-password" 20 "member-password" 20)) }}
 ---
 {{- /* LLM key: never in git. Set at install (--set-string gateway.llm.apiKey=...); otherwise keep what's in the cluster. */}}
 {{- $existingLlm := lookup "v1" "Secret" $ns "llm" }}

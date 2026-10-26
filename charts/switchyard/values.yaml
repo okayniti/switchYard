@@ -134,7 +134,7 @@ gateway:
   image: { repository: switchyard-gateway, tag: dev }
   port: 8080
   healthPath: /healthz
-  readyPath: /healthz
+  readyPath: /readyz        # also checks Postgres (503 if DB down)
   adminEmail: admin@switchyard.local
   memberEmail: member@switchyard.local
   llm:
@@ -150,8 +150,6 @@ gateway:
       valueFrom: { secretKeyRef: { name: postgres, key: password } }
     - name: DATABASE_URL
       value: "postgres://{{ .Values.postgres.username }}:$(PGPASSWORD)@postgres.{{ .Values.global.namespaces.platform }}.svc.cluster.local:5432/{{ .Values.postgres.database }}"
-    - name: SESSION_SECRET
-      valueFrom: { secretKeyRef: { name: gateway, key: session-secret } }
     - name: GATEWAY_ENC_KEY  # 32 random bytes, base64: AES-256-GCM key for upstream credentials
       valueFrom: { secretKeyRef: { name: gateway, key: enc-key } }
     - name: ADMIN_EMAIL
