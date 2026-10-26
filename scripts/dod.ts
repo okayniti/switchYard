@@ -171,6 +171,29 @@ checks.push({
   },
 });
 
+checks.push({
+  n: 5,
+  name: "one prompt that needs two upstream servers (woo + shipping)",
+  async run() {
+    const id = await orderId();
+    // As B's external client: the two calls a model would make for this prompt.
+    const b = await clientB();
+    const order = await b.call("woo__get_order", { id });
+    const quote = await b.call("shipping__quote_shipping", { destination: "560001", weight_kg: 1, service: "express" });
+    // And as one natural-language prompt through the chat agent (as B).
+    const c = await chat(B, `Look up order ${id} and quote express shipping for it to PIN 560001, weight 1 kg.`);
+    const servers = new Set((c.toolCalls ?? []).filter((t) => t.ok).map((t) => t.name.split("__")[0]));
+    return {
+      pass: !order.isError && !quote.isError && servers.has("woo") && servers.has("shipping"),
+      evidence: [
+        `external client: woo__get_order -> ${short(text(order), 80)} | shipping__quote_shipping -> ${short(text(quote), 80)}`,
+        `chat as B, one prompt: ${describeCalls(c)}`,
+        `reply: ${short(c.reply)}`,
+      ],
+    };
+  },
+});
+
 // ---------- runner ----------
 const only = (process.env.ONLY ?? "").split(",").map((s) => Number(s.trim())).filter(Boolean);
 const selected = checks.filter((c) => !only.length || only.includes(c.n));
