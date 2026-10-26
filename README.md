@@ -334,5 +334,6 @@ made the design decisions, reviewed what it produced, and tested the system myse
 - **Verification.** Every step was run against the real cluster before it was committed, and
   failures became their own `fix:` commits. That's why the history is granular, and why it
   shows mistakes and their fixes, including a rollback after a bad upgrade.
-- **What I did by hand:** reviewed the diffs and the design and threat-model docs, ran the
-  storefront checkout and the dashboard and chat flows, and connected an external MCP client.
+- **What I did by hand:** *(TODO: list what you personally checked, e.g. reviewing diffs and the
+  design and threat-model docs, the manual COD checkout, the dashboard and chat flows,
+  connecting Claude Code / Cursor with your key.)*
