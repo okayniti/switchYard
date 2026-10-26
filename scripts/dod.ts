@@ -238,7 +238,8 @@ checks.push({
       const c = await chat(A, "Quote standard shipping to PIN 110001 for 2 kg. If you have no shipping tool, say so.");
       const chatShipping = (c.toolCalls ?? []).filter((t) => t.name.startsWith("shipping__") && t.ok).length;
       return {
-        pass: dis.body.status === "disabled" && before > 0 && after === 0 && Boolean(direct.isError) && chatShipping === 0,
+        // The chat must actually answer: "no shipping call" only counts if the LLM ran.
+        pass: dis.body.status === "disabled" && before > 0 && after === 0 && Boolean(direct.isError) && !c.error && chatShipping === 0,
         evidence: [
           `PATCH enabled=false -> ${dis.body.status}; list_changed notifications at B: ${b.changed}`,
           `B's shipping tools: ${before} before, ${after} after; direct call -> ${short(text(direct), 90)}`,
