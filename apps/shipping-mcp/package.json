@@ -1,0 +1,27 @@
+{
+  "name": "shipping-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Demo shipping-rates MCP server (Streamable HTTP, bearer-token protected)",
+  "type": "module",
+  "main": "dist/index.js",
+  "files": ["dist"],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "express": "5.3.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.6",
+    "@types/node": "24.19.2",
+    "typescript": "5.9.3"
+  }
+}
