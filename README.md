@@ -159,6 +159,9 @@ imports them one at a time, and the build cache is pruned afterwards (`docker bu
 
 ## Production-like deployment (VPS with k3s)
 
+> **Status: documented, not deployed.** No VPS was provisioned for this submission. The full,
+> exact runbook is in **[docs/VPS.md](docs/VPS.md)**.
+
 The **same chart** runs on a single VPS with k3s. k3s bundles Traefik, the `local-path`
 storage class and NetworkPolicy enforcement, exactly like k3d locally. Only
 `charts/switchyard/values-prod.yaml` changes; no template differs.
@@ -175,49 +178,18 @@ storage class and NetworkPolicy enforcement, exactly like k3d locally. Only
 | Images | `switchyard-*:dev`, `k3d image import`, `IfNotPresent` | `ghcr.io/okayniti/switchyard-*:<git-sha>` (build multi-arch with `docker buildx` if the VPS is ARM) |
 | Resources | small requests/limits | slightly larger |
 
-### Steps
+### In short (full commands in [docs/VPS.md](docs/VPS.md))
 
-```bash
-# On the VPS (Ubuntu, ≥ 4 GB RAM), ports 80/443 open, DNS A records for shop/yard/mcp → VPS IP
-curl -sfL https://get.k3s.io | sh -
-export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-
-# TLS: cert-manager + a Let's Encrypt ClusterIssuer that solves HTTP-01 through Traefik
-helm repo add jetstack https://charts.jetstack.io && helm repo update
-helm install cert-manager jetstack/cert-manager -n cert-manager --create-namespace --set crds.enabled=true
-kubectl apply -f - <<'EOF'
-apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
-metadata: { name: letsencrypt-prod }
-spec:
-  acme:
-    server: https://acme-v02.api.letsencrypt.org/directory
-    email: you@example.com
-    privateKeySecretRef: { name: letsencrypt-prod }
-    solvers: [{ http01: { ingress: { ingressClassName: traefik } } }]
-EOF
-
-# Namespaces + the existingSecrets values-prod.yaml references (random values, never in git)
-for ns in store mcp platform; do kubectl create namespace $ns; done
-kubectl -n store create secret generic mariadb \
-  --from-literal=mariadb-root-password="$(openssl rand -hex 24)" \
-  --from-literal=mariadb-password="$(openssl rand -hex 24)"
-kubectl -n store create secret generic wordpress-admin --from-literal=admin-password="$(openssl rand -hex 12)"
-CK="ck_$(openssl rand -hex 20)"; CS="cs_$(openssl rand -hex 20)"
-for ns in store mcp; do
-  kubectl -n $ns create secret generic woocommerce-api-key --from-literal=consumer-key="$CK" --from-literal=consumer-secret="$CS"  # gitleaks:allow (shell variable, not a secret)
-done
-
-# Fill in the <placeholders> in values-prod.yaml (domain, git sha, admin email), then:
-helm upgrade --install switchyard charts/switchyard -f charts/switchyard/values-prod.yaml \
-  --set-string gateway.llm.apiKey="$LLM_API_KEY" --wait --wait-for-jobs --timeout 15m
-```
-
-Images: push them first, e.g. `docker buildx build --platform linux/amd64,linux/arm64 -t
-ghcr.io/okayniti/switchyard-gateway:$(git rev-parse --short HEAD) -f apps/gateway/Dockerfile --push .`
-(and the same for the other images). `values-prod.yaml` sets `global.createNamespaces: false`
-because the namespaces are created by hand above to hold the existing Secrets; locally the
-chart creates them.
+1. Build and push the five images to `ghcr.io/okayniti/switchyard-*:<git-sha>` with
+   `docker buildx`, and make the packages public (the chart has no `imagePullSecrets`).
+2. On the VPS: install k3s `v1.35.5+k3s1` (the same version as local), then cert-manager
+   `v1.21.3` with a `letsencrypt-prod` ClusterIssuer (HTTP-01 through Traefik).
+3. Create the `store`, `mcp` and `platform` namespaces and the three `existingSecret`s with
+   `openssl rand` (`values-prod.yaml` sets `global.createNamespaces: false` so Helm doesn't try
+   to own them).
+4. Fill in the `<placeholders>` in `values-prod.yaml` (hosts, image tag, admin email) and run
+   `helm upgrade --install switchyard charts/switchyard -f charts/switchyard/values-prod.yaml
+   --set-string gateway.llm.apiKey=... --wait --wait-for-jobs`.
 
 ## Upgrades and rollback
 
