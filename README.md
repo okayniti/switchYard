@@ -156,7 +156,40 @@ imports them one at a time, and the build cache is pruned afterwards (`docker bu
 
 ## Connect an external MCP client
 
-*(Owned by the gateway/dashboard session.)*
+Every team member uses **one URL and their own key**. They never see or configure an upstream
+server or its credentials.
+
+1. Log in to the dashboard (<http://yard.localtest.me>; logins: `make gateway-admin-password`).
+2. **My keys → Generate key.** The key (`syk_…`) is shown **once**, together with a ready-made
+   Claude Code command. The gateway stores only its SHA-256.
+3. Add the gateway to your client:
+
+   **Claude Code**
+   ```bash
+   claude mcp add --transport http switchyard http://mcp.localtest.me/mcp \
+     --header "Authorization: Bearer syk_..."
+   ```
+
+   **Cursor** (`~/.cursor/mcp.json`)
+   ```json
+   { "mcpServers": { "switchyard": { "url": "http://mcp.localtest.me/mcp",
+       "headers": { "Authorization": "Bearer syk_..." } } } }
+   ```
+
+   **Any other client:** Streamable HTTP transport, URL `http://mcp.localtest.me/mcp`, header
+   `Authorization: Bearer <key>`.
+
+You'll see the tools of every **enabled and reachable** server, named `<server>__<tool>`
+(`woo__list_orders`, `shipping__quote_shipping`, `everything__echo`…). The prefix is how two
+servers can both have a `search` tool (`woo__search`, `shipping__search`). When an admin disables
+a server, or one goes down, connected clients get `tools/list_changed` and its tools disappear.
+
+Try: *"What orders came in today?"*, or *"Look up order 20 and quote express shipping to PIN
+560001 for 1 kg"* (uses two servers).
+
+- **Revoked key:** the very next request gets `401`, even inside an open session.
+- **Browser-based clients** must run on an origin listed in `MCP_ALLOWED_ORIGINS`; CLI clients
+  send no `Origin` and are unaffected.
 
 ## Use the chat agent
 
