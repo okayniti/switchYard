@@ -147,6 +147,19 @@ checks.push({
   },
 });
 
+checks.push({
+  n: 3,
+  name: "B's external MCP client (gateway URL + own key only) sees tools from all 3 servers",
+  async run() {
+    const names = await (await clientB()).names();
+    const per = ["woo", "shipping", "everything"].map((s) => [s, names.filter((n) => n.startsWith(`${s}__`)).length] as const);
+    return {
+      pass: per.every(([, count]) => count > 0) && names.includes("woo__search") && names.includes("shipping__search"),
+      evidence: [`${MCP}: ${names.length} tools (${per.map(([s, n]) => `${s} ${n}`).join(", ")})`, `same upstream name, no collision: ${names.filter((n) => n.endsWith("__search")).join(", ")}`],
+    };
+  },
+});
+
 // ---------- runner ----------
 const only = (process.env.ONLY ?? "").split(",").map((s) => Number(s.trim())).filter(Boolean);
 const selected = checks.filter((c) => !only.length || only.includes(c.n));
