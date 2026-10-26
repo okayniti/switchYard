@@ -50,19 +50,46 @@ function systemPrompt(): string {
   ].join("\n");
 }
 
+// How long a 429 asks us to wait: the Retry-After header (seconds), else the "try again in
+// 1m2.5s / 172.5ms" hint free tiers such as Groq put in the message; clamped to 0.25-20 s.
+export function retryDelayMs(retryAfter: string | null, body: string): number {
+  let ms = 2_000;
+  if (retryAfter && Number.isFinite(Number(retryAfter))) ms = Number(retryAfter) * 1000;
+  else {
+    const m = /try again in (?:(\d+)m)?(?:([\d.]+)s)?(?:([\d.]+)ms)?/i.exec(body);
+    if (m && (m[1] || m[2] || m[3])) ms = Number(m[1] ?? 0) * 60_000 + Number(m[2] ?? 0) * 1000 + Number(m[3] ?? 0);
+  }
+  return Math.min(Math.max(Math.ceil(ms), 250), 20_000);
+}
+
+const MAX_429_RETRIES = 3;
+const MAX_429_WAIT_MS = 30_000;
+
 async function callLlm(messages: ChatMessage[], tools: unknown[]): Promise<ChatMessage> {
   let res: globalThis.Response;
-  try {
-    res = await fetch(`${config.llm.baseUrl.replace(/\/+$/, "")}/chat/completions`, {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${config.llm.apiKey}` },
-      body: JSON.stringify({ model: config.llm.model, messages, tools: tools.length ? tools : undefined, tool_choice: tools.length ? "auto" : undefined, temperature: 0.2 }),
-      signal: AbortSignal.timeout(60_000),
-    });
-  } catch (err) {
-    throw new Error(`LLM provider unreachable: ${(err as Error).message}`);
+  let text: string;
+  let waited = 0;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      res = await fetch(`${config.llm.baseUrl.replace(/\/+$/, "")}/chat/completions`, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${config.llm.apiKey}` },
+        body: JSON.stringify({ model: config.llm.model, messages, tools: tools.length ? tools : undefined, tool_choice: tools.length ? "auto" : undefined, temperature: 0.2 }),
+        signal: AbortSignal.timeout(60_000),
+      });
+    } catch (err) {
+      throw new Error(`LLM provider unreachable: ${(err as Error).message}`);
+    }
+    text = await res.text();
+    // Free tiers rate-limit per minute; a short wait usually clears it. Bounded so a request
+    // never hangs: at most MAX_429_RETRIES retries and MAX_429_WAIT_MS of waiting in total.
+    if (res.status !== 429 || attempt >= MAX_429_RETRIES) break;
+    const delay = retryDelayMs(res.headers.get("retry-after"), text);
+    if (waited + delay > MAX_429_WAIT_MS) break;
+    waited += delay;
+    console.warn(`LLM rate limited (429); retrying in ${delay} ms`);
+    await new Promise((r) => setTimeout(r, delay));
   }
-  const text = await res.text();
   if (!res.ok) {
     const hint = res.status === 429 ? " (rate limited; wait a minute and retry)" : res.status === 401 ? " (check LLM_API_KEY)" : "";
     throw new Error(`LLM returned HTTP ${res.status}${hint}: ${text.slice(0, 300)}`);
