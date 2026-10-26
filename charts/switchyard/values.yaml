@@ -179,6 +179,9 @@ gateway:
       value: "http://everything-mcp.{{ .Values.global.namespaces.mcp }}.svc.cluster.local:{{ .Values.everythingMcp.port }}/mcp"
     - name: PUBLIC_MCP_URL
       value: '{{ ternary "https" "http" .Values.global.tls.enabled }}://{{ .Values.global.hosts.mcp }}/mcp'
+    - name: MCP_ALLOWED_ORIGINS  # browser Origins allowed on /mcp (DNS-rebinding defence): the dashboard
+      value: '{{ ternary "https" "http" .Values.global.tls.enabled }}://{{ .Values.global.hosts.dashboard }}'
+    # UPSTREAM_ALLOWED_HOSTS: not set, the gateway default (*.svc.cluster.local) applies.
     - name: LLM_BASE_URL
       value: "{{ .Values.gateway.llm.baseUrl }}"
     - name: LLM_MODEL
