@@ -199,8 +199,15 @@ helm history switchyard                   # every revision with its status
 helm rollback switchyard <revision> --wait   # restores the previous revision's manifests
 ```
 
-Verified locally: many `helm upgrade` runs (the setup Job re-runs cleanly every time) and
-`helm history`. `helm rollback` is standard Helm and was **not** re-verified on the final chart.
+**Verified locally on the final chart:**
+
+- Many `helm upgrade` runs; the setup Job re-runs cleanly every time.
+- **`helm rollback`**, for real. A bad upgrade (revision 28: `values-prod.yaml` with
+  placeholder image tags applied by mistake to the local cluster) put every Deployment on an
+  invalid image. The rolling-update Deployments kept their old pods serving; WordPress
+  (`Recreate`) went down. `helm rollback switchyard 27 --wait` restored everything in **13 s**:
+  all pods Ready, storefront 200, every generated password and Secret unchanged, products and
+  orders intact.
 
 What makes this safe:
 
@@ -210,7 +217,8 @@ What makes this safe:
   install only if missing; WooCommerce reinstalled only if the version differs, then `wp wc
   update` for DB migrations; products keyed by SKU; the REST key is delete-then-insert).
   `scripts/check-store-idempotency.sh` runs two upgrades and asserts that Secrets, products,
-  users, API keys and settings are identical. A rollback re-runs nothing destructive.
+  users, API keys and settings are identical. Its full run wasn't completed on the final
+  chart; the individual checks were done by hand. A rollback re-runs nothing destructive.
 - **Data lives on PVCs** (MariaDB, WordPress content, Postgres), which upgrades and rollbacks
   don't touch, and the store PVC plus its Secrets carry `helm.sh/resource-policy: keep`, so
   they also survive an uninstall.
