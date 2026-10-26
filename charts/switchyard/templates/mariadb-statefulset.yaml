@@ -30,6 +30,10 @@ spec:
         - name: mariadb
           image: {{ .Values.mariadb.image }}
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          {{- with .Values.mariadb.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           ports:
             - name: mysql
               containerPort: 3306

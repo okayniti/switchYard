@@ -30,6 +30,8 @@ mariadb:
   database: wordpress
   username: wordpress
   image: mariadb:11.8.9
+  # Extra mysqld flags, e.g. memory tuning in values-local.yaml.
+  args: []
   storage: 2Gi
   resources:
     requests: { cpu: 100m, memory: 256Mi }
@@ -40,6 +42,9 @@ wordpress:
     repository: switchyard-wordpress
     tag: dev
   storage: 2Gi
+  apache:
+    startServers: 2
+    maxRequestWorkers: 10
   # WP_HTTP_BLOCK_EXTERNAL + no auto-updates + no in-dashboard file editor.
   blockExternalHttp: true
   resources:
@@ -123,6 +128,8 @@ everythingMcp:
 postgres:
   enabled: true
   image: postgres:18.6-alpine
+  # Extra postgres flags (-c key=value), e.g. memory tuning in values-local.yaml.
+  args: []
   database: gateway
   username: gateway
   storage: 1Gi

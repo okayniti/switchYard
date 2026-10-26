@@ -84,6 +84,10 @@ spec:
             - name: content
               mountPath: /var/www/html
               subPath: html
+            - name: apache-mpm
+              mountPath: /etc/apache2/conf-enabled/zz-switchyard-mpm.conf
+              subPath: zz-switchyard-mpm.conf
+              readOnly: true
             - name: apache-run
               mountPath: /var/run/apache2
             - name: apache-lock
@@ -100,3 +104,6 @@ spec:
           emptyDir: {}
         - name: tmp
           emptyDir: {}
+        - name: apache-mpm
+          configMap:
+            name: wordpress-apache

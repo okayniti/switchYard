@@ -1,0 +1,19 @@
+{{- $c := dict "root" . "component" "wordpress" }}
+# Caps Apache prefork workers: each is a PHP process (~30-60 MB), so the default 150 would
+# blow far past the container memory limit under load. Loaded after mpm_prefork.conf (zz-).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wordpress-apache
+  namespace: {{ include "store.namespace" . }}
+  labels:
+    {{- include "switchyard.labels" $c | nindent 4 }}
+data:
+  zz-switchyard-mpm.conf: |
+    <IfModule mpm_prefork_module>
+      StartServers            {{ .Values.wordpress.apache.startServers }}
+      MinSpareServers         {{ .Values.wordpress.apache.startServers }}
+      MaxSpareServers         {{ .Values.wordpress.apache.maxRequestWorkers }}
+      MaxRequestWorkers       {{ .Values.wordpress.apache.maxRequestWorkers }}
+      MaxConnectionsPerChild  500
+    </IfModule>
