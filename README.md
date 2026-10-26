@@ -83,6 +83,35 @@ hosts to `/etc/hosts` (Windows: `C:\Windows\System32\drivers\etc\hosts`, as Admi
 127.0.0.1  shop.localtest.me yard.localtest.me mcp.localtest.me
 ```
 
+### Resource sizing: an 8 GB laptop vs production
+
+The local stack is sized to fit a laptop with **8 GB RAM total**, where WSL/Docker gets
+about 4–5 GB. Only `values-local.yaml` is shrunk; `values-prod.yaml` keeps the chart's larger
+defaults. Every workload still has requests **and** limits, and each limit is the smallest
+that was observed to run.
+
+| Workload | `values-local.yaml` request → limit | Tuning | `values-prod.yaml` |
+|----------|-------------------------------------|--------|--------------------|
+| woo-mcp, shipping-mcp, everything-mcp, gateway | 64Mi → 256Mi | | chart defaults (64–256Mi → 192–768Mi) |
+| WordPress | 128Mi → 256Mi | Apache prefork capped at **4 workers** (each is a ~30–60 MB PHP process; the default 150 would blow the limit under load) | 256Mi → 768Mi, 10 workers |
+| MariaDB | 128Mi → 256Mi | `--innodb-buffer-pool-size=64M` (default 128M), `--performance-schema=OFF` (~100 MB saved), `--max-connections=30` | 384Mi → 768Mi, defaults |
+| Postgres | 64Mi → 256Mi | `shared_buffers=32MB`, `max_connections=20`, `work_mem=2MB` | 128Mi → 384Mi, defaults |
+| store setup Job | 128Mi → **384Mi** | see below | 128Mi → 512Mi |
+| k3s itself | | `metrics-server` disabled (no HPA uses it) | k3s defaults |
+
+**Why the setup Job gets 384Mi, more than everything else.** At 256Mi it was
+**OOM-killed** (exit 137, four retries) while running `wp rewrite structure`. wp-cli boots all of
+WordPress plus WooCommerce in a single PHP process, and flushing rewrite rules peaks above
+256 MB. The Job is short-lived and runs alone after install/upgrade, so the higher limit
+costs nothing at steady state, while the long-running pods stay at 256Mi.
+
+Measured with the full stack running (7 pods, `docker stats --no-stream`): the k3d node
+uses **≈1.6 GiB**, leaving ~1.6 GB free in a 3.7 GB Docker VM.
+
+Builds are memory-heavy too, so `make images` builds **one image at a time**, `make import`
+imports them one at a time, and the build cache is pruned afterwards (`docker builder prune
+-f`). Stop unrelated containers before `make up` on a small machine.
+
 ### Troubleshooting
 
 | Symptom | Fix |
