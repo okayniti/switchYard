@@ -1,0 +1,32 @@
+{{- if .Values.wooMcp.enabled }}
+# woo-mcp accepts traffic ONLY from gateway pods in the platform namespace.
+# Selecting the pod makes every other ingress source denied (k3s enforces NetworkPolicy).
+# Demo: curl woo-mcp.mcp:8080/healthz from a pod in `store` is refused (k3s kube-router
+# REJECTs, curl exit 7); from a pod labelled
+# like the gateway in `platform` it answers {"ok":true}. New pods are added to the allow-list
+# a few seconds after start, so wait ~10 s before testing from a fresh pod.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: woo-mcp-allow-gateway-only
+  namespace: {{ .Values.global.namespaces.mcp }}
+  labels:
+    {{- include "switchyard.labels" (dict "root" . "component" "woo-mcp") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "switchyard.selectorLabels" (dict "root" . "component" "woo-mcp") | nindent 6 }}
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        # Both selectors in ONE entry = AND: gateway pods AND in the platform namespace.
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.global.namespaces.platform }}
+          podSelector:
+            matchLabels:
+              {{- include "switchyard.selectorLabels" (dict "root" . "component" "gateway") | nindent 14 }}
+      ports:
+        - port: {{ .Values.wooMcp.port }}
+          protocol: TCP
+{{- end }}
