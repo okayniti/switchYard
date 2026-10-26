@@ -39,6 +39,7 @@ git config core.hooksPath .githooks        # enables the gitleaks pre-commit sec
 
 make up                                    # cluster + images + helm install (≈5 min first time)
 make up LLM_API_KEY=gsk_...                # same, and stores the LLM key for chat
+make llm-key LLM_API_KEY=gsk_...           # ONLY set/replace the LLM key + restart the gateway (no rebuild)
 ```
 
 `make up` is idempotent; run it again after any change. Under the hood it:
