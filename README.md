@@ -21,15 +21,24 @@ Docs: [design](docs/DESIGN.md) · [threat model](docs/THREAT_MODEL.md) ·
 
 | Tool | Version used | Notes |
 |------|--------------|-------|
-| Docker Desktop (or Docker Engine) | 29.6 | give it **≥ 4 GB RAM** (6–8 GB is comfortable) |
+| Docker Desktop (or Docker Engine) | 29.6 | the stack fits in a **~4 GB** Docker VM (developed on an 8 GB laptop; see [sizing](#resource-sizing-an-8-gb-laptop-vs-production)) |
 | k3d | 5.9.0 | runs k3s `v1.35.5-k3s1` in Docker |
 | kubectl | 1.36 | |
 | Helm | **4.3.1** | developed and tested with Helm 4 |
-| GNU make + bash | | on Windows: Git Bash plus a make from winget, Chocolatey or Scoop |
+| GNU make + bash | | the Makefile and scripts are bash |
+| gitleaks | 8.30 | optional; the pre-commit secret scan (`.githooks/pre-commit`) |
 | Node.js 24 + pnpm 10 | 24.22 / 10.34 | only for developing the apps; images build inside Docker |
-| An OpenAI-compatible LLM API key | | optional; only the chat needs it (Groq, Gemini, OpenRouter, Ollama…) |
+| An OpenAI-compatible LLM API key | | only the chat needs it. Default: Groq with `openai/gpt-oss-120b` |
 
 Host ports **80 and 443** must be free (k3d maps them to the cluster's Traefik ingress).
+
+**Windows:**
+- Run every `make` and `scripts/*.sh` command from **Git Bash**, not PowerShell or cmd.
+- Install make with winget, Chocolatey or Scoop, and k3d, Helm and gitleaks with winget
+  (`winget install k3d.k3d Helm.Helm Gitleaks.Gitleaks`). Open a new terminal afterwards so
+  they're on `PATH`.
+- If `*.localtest.me` doesn't resolve on your network, use the
+  [hosts-file fallback](#local-domains-localtestme).
 
 ## Local setup
 
