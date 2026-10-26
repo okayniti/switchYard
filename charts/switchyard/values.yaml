@@ -18,6 +18,8 @@ global:
     clusterIssuer: ""
   storageClassName: local-path
   imagePullPolicy: IfNotPresent
+  # false in prod: namespaces are created up front so existingSecrets can exist before install.
+  createNamespaces: true
 
 # ---------------- store namespace ----------------
 

@@ -1,3 +1,4 @@
+{{- if .Values.global.createNamespaces }}
 {{- range $zone, $ns := .Values.global.namespaces }}
 ---
 apiVersion: v1
@@ -7,4 +8,5 @@ metadata:
   labels:
     app.kubernetes.io/part-of: switchyard
     switchyard.io/zone: {{ $zone }}
+{{- end }}
 {{- end }}

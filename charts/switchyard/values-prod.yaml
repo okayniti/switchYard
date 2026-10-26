@@ -14,6 +14,7 @@ global:
     clusterIssuer: letsencrypt-prod
   storageClassName: local-path  # k3s default; swap for a cloud/CSI class on managed clusters
   imagePullPolicy: IfNotPresent
+  createNamespaces: false        # created by hand first, to hold the existingSecrets
 
 mariadb:
   existingSecret: mariadb           # keys: mariadb-root-password, mariadb-password
