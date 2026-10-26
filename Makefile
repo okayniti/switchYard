@@ -69,8 +69,10 @@ gateway-admin-password: ## Print the dashboard admin + member passwords
 	@echo -n "member (member@switchyard.local): "; kubectl get secret gateway -n platform -o jsonpath='{.data.member-password}' | base64 -d; echo
 
 dod: ## Run the Definition-of-Done checks against the cluster (ONLY=3,6 to pick)
-	@ADMIN_PASSWORD="$$(kubectl get secret gateway -n platform -o jsonpath='{.data.admin-password}' | base64 -d)" \
-	 MEMBER_PASSWORD="$$(kubectl get secret gateway -n platform -o jsonpath='{.data.member-password}' | base64 -d)" \
+	@admin="$$(kubectl get secret gateway -n platform -o jsonpath='{.data.admin-password}')" && \
+	 member="$$(kubectl get secret gateway -n platform -o jsonpath='{.data.member-password}')" || \
+	 { echo "dod: cannot read Secret platform/gateway (is the cluster up and the gateway installed?)" >&2; exit 1; }; \
+	 ADMIN_PASSWORD="$$(echo "$$admin" | base64 -d)" MEMBER_PASSWORD="$$(echo "$$member" | base64 -d)" \
 	 ONLY="$(ONLY)" node --experimental-strip-types --no-warnings scripts/dod.ts
 
 status: ## Show what is running
