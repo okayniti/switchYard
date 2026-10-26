@@ -67,7 +67,8 @@ async function chat(api: Api, prompt: string): Promise<ChatReply> {
   return (await api("/chat", "POST", { messages: [{ role: "user", content: prompt }] })).body;
 }
 const describeCalls = (c: ChatReply) =>
-  (c.toolCalls ?? []).map((t) => `${t.name}(${short(JSON.stringify(t.arguments), 80)}) ${t.ok ? "ok" : "ERR"} ${t.durationMs}ms`).join("; ") || `none${c.error ? ` (error: ${short(c.error, 160)})` : ""}`;
+  ((c.toolCalls ?? []).map((t) => `${t.name}(${short(JSON.stringify(t.arguments), 80)}) ${t.ok ? "ok" : "ERR"} ${t.durationMs}ms`).join("; ") || "none") +
+  (c.error ? ` | chat error: ${short(c.error, 160)}` : "");
 
 // A storefront checkout through the WooCommerce Store API: the same cart -> checkout calls the
 // block checkout page makes in a browser, paying with Cash on Delivery.
