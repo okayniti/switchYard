@@ -34,3 +34,20 @@ setup:
   existingAdminSecret: wordpress-admin   # key: admin-password
 wooApiKey:
   existingSecret: woocommerce-api-key    # keys: consumer-key, consumer-secret (in store AND mcp)
+
+# App images from the registry (multi-arch if the VPS is ARM). App secrets (postgres,
+# gateway, shipping token) are generated in-cluster by Helm with lookup — never in git.
+wooMcp:
+  image: { repository: ghcr.io/okayniti/switchyard-woo-mcp, tag: <git-sha> }
+shippingMcp:
+  image: { repository: ghcr.io/okayniti/switchyard-shipping-mcp, tag: <git-sha> }
+everythingMcp:
+  image: { repository: ghcr.io/okayniti/switchyard-everything-mcp, tag: <git-sha> }
+gateway:
+  image: { repository: ghcr.io/okayniti/switchyard-gateway, tag: <git-sha> }
+  adminEmail: <admin-email>
+  resources:
+    requests: { cpu: 200m, memory: 256Mi }
+    limits: { cpu: "1", memory: 768Mi }
+postgres:
+  storage: 5Gi
