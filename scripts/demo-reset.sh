@@ -20,7 +20,7 @@ done
 
 step() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 
-api_ok() { kubectl get --raw /readyz >/dev/null 2>&1; }
+api_ok() { kubectl get namespace default --request-timeout=5s >/dev/null 2>&1; }
 
 if $WIPE; then
   step "WIPE: deleting cluster '$CLUSTER' and ALL its data (store orders, products, gateway DB)"
