@@ -109,7 +109,7 @@ What orders came in today?
 
 ## 5. External client as user B: Claude Code (3:15–4:45)
 
-B's private window → **Keys** → **Generate key** → copy the ready `claude mcp add` command it
+B's private window → **My keys** → **Generate key** → copy the ready `claude mcp add` command it
 shows. In terminal 2:
 
 ```bash
@@ -144,7 +144,7 @@ Point out the two different servers in the tool calls: `woo__list_orders`, then
 ## 6. Team and control (4:45–6:15)
 
 **Revoke B's key.** In A's dashboard → **Members** → member@switchyard.local → **Revoke** on
-B's key (or B does it on **Keys**). In Claude Code:
+B's key (or B does it on **My keys**). In Claude Code:
 
 ```
 What orders came in today?
@@ -196,7 +196,7 @@ woo still works: one dead upstream doesn't affect the others. Bring it back:
 kubectl scale deploy everything-mcp -n mcp --replicas=1
 ```
 
-**Audit log.** A → **Audit**:
+**Audit log.** A → **Audit log**:
 - Filter by user **member@switchyard.local**: B's Claude Code calls (`source = mcp`). The
   request with the revoked key is refused (401) before any tool runs, so it's not a tool-call
   row. Check this before recording rather than claiming it on camera.
